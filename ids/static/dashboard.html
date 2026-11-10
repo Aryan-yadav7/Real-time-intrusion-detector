@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live Security Monitor</title>
+<script nonce="__NONCE__">try{var t=localStorage.getItem("guard-theme");if(t!=="dark"&&t!=="light")t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+<style nonce="__NONCE__">
+:root{color-scheme:light;--page:#f4f5f7;--surface:#fff;--side:#fbfbfc;--ink:#1c1f26;--ink-2:#4a5160;--muted:#667085;--line:#e3e6ec;--line-2:#cdd2dc;--hover:rgba(100,110,140,.10);
+--accent:#4f5bd5;--accent-ink:#fff;--accent-soft:#eceefd;--good:#1f8a4c;--warning:#d9961a;--critical:#c93c3c;
+--tint-ok:#e8f5ed;--tint-warning:#fdf4dc;--tint-danger:#fcebeb;--series-1:#4f5bd5;--series-2:#d9822b;
+--serif:Georgia,"Iowan Old Style","Palatino Linotype",serif;--sans:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,Roboto,sans-serif;--mono:ui-monospace,"Cascadia Mono",Consolas,monospace}
+:root[data-theme=dark]{color-scheme:dark;--page:#15171c;--surface:#1d2026;--side:#191b20;--ink:#e8eaee;--ink-2:#b6bbc7;--muted:#8d94a3;--line:#2b2f38;--line-2:#3a3f4b;--hover:rgba(160,170,200,.10);
+--accent:#939df7;--accent-ink:#12141c;--accent-soft:#232744;--good:#4cc27f;--warning:#e9b949;--critical:#ef6b6b;
+--tint-ok:#16291f;--tint-warning:#2d2713;--tint-danger:#331b1d;--series-1:#939df7;--series-2:#e59a52}
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;background:var(--page);color:var(--ink);font:15px/1.6 var(--sans);-webkit-text-size-adjust:100%}
+h1,h2,h3{font-family:var(--serif);font-weight:600;letter-spacing:-.01em;margin:0;color:var(--ink)}
+h2{font-size:1.5rem;line-height:1.25;margin-bottom:6px}h3{font-size:1.0625rem;margin-bottom:6px}
+p{margin:0 0 12px;color:var(--ink-2);max-width:68ch}
+code,pre{font-family:var(--mono);font-size:.8125rem}
+.shell{display:grid;grid-template-columns:256px minmax(0,1fr);min-height:100vh}
+.side{position:sticky;top:0;height:100vh;overflow-y:auto;background:var(--side);border-right:1px solid var(--line);padding:20px 12px 14px;display:flex;flex-direction:column;gap:20px}
+.brand{display:flex;align-items:center;gap:10px;padding:0 10px;font:600 1.1875rem var(--serif);color:var(--ink)}
+.brand svg{flex:none;color:var(--accent)}
+.nav{display:grid;gap:18px;flex:1;align-content:start}
+.ng{display:grid;gap:2px}.ng .gl{font-size:.8125rem;color:var(--muted);padding:0 10px 4px}
+.ni{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;text-align:left;font:inherit;font-size:.9rem;color:var(--ink-2);background:none;border:0;border-radius:8px;padding:8px 10px;cursor:pointer}
+.ni:hover{background:var(--hover);color:var(--ink)}
+.ni[aria-current=page]{background:var(--accent-soft);color:var(--accent);font-weight:600;box-shadow:inset 3px 0 0 var(--accent)}
+.badge{font-size:.75rem;min-width:22px;text-align:center;padding:0 7px;border-radius:999px;background:var(--hover);color:var(--ink-2)}
+.sfoot{display:grid;gap:10px;border-top:1px solid var(--line);padding:14px 6px 0}
+.who{display:grid;gap:8px;font-size:.8125rem;color:var(--ink-2)}.who span{word-break:break-all}
+.main{min-width:0}
+.topbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px max(28px,calc((100% - 1280px)/2 + 28px));background:var(--page);border-bottom:1px solid var(--line);min-height:57px}
+.topbar h1{font-size:1.125rem;flex:1;min-width:0}
+.menu-btn{display:none;padding:6px 10px}
+.content{max-width:1280px;margin:0 auto;padding:30px 28px 56px}
+.scrim{position:fixed;inset:0;background:rgba(10,12,18,.5);z-index:19}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px 22px}
+button,.btn{font:inherit;font-size:.9rem;cursor:pointer;border-radius:8px;padding:8px 15px;border:1px solid var(--line-2);background:transparent;color:var(--ink);text-decoration:none;display:inline-block;line-height:1.4}
+button:hover,.btn:hover{background:var(--hover)}
+button.primary,.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+button.primary:hover,.btn.primary:hover{filter:brightness(1.08)}
+button.danger{color:var(--critical)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.chip{font-size:.8125rem;color:var(--ink-2);border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:3px 12px;display:inline-flex;align-items:center;gap:7px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block}
+.sub{color:var(--ink-2);margin-bottom:22px}
+@media (max-width:860px){
+ .shell{grid-template-columns:1fr}
+ .side{position:fixed;left:0;top:0;bottom:0;width:272px;z-index:20;transform:translateX(-102%);transition:transform .2s}
+ .side[data-open=true]{transform:none;box-shadow:0 0 40px rgba(0,0,0,.35)}
+ .menu-btn{display:inline-block}.topbar{padding:10px 16px}.content{padding:22px 16px 48px}
+}
+@media (prefers-reduced-motion:reduce){.side{transition:none}}
+
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip[data-live=yes] .dot{background:var(--good)}.chip[data-live=no] .dot{background:var(--critical)}
+.topbar h1 a{color:var(--muted);text-decoration:none}.topbar h1 a:hover{color:var(--ink);text-decoration:underline}
+.banner{--accent-c:var(--good);--tint:var(--tint-ok);display:flex;gap:16px;align-items:center;background:var(--tint);border:1px solid var(--line);border-left:6px solid var(--accent-c);border-radius:14px;padding:16px 20px;margin-bottom:22px}
+.banner[data-level=warning]{--accent-c:var(--warning);--tint:var(--tint-warning)}
+.banner[data-level=danger]{--accent-c:var(--critical);--tint:var(--tint-danger)}
+.banner .icon{flex:none;width:42px;height:42px;border-radius:50%;background:var(--accent-c);color:#fff;font-size:1.35rem;font-weight:700;display:grid;place-items:center}
+.banner[data-level=warning] .icon{color:#1c1f26}
+.banner .title{font:600 1.375rem/1.25 var(--serif)}.banner .msg{color:var(--ink-2);margin-top:2px}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px}
+.tile .label{color:var(--ink-2);font-size:.875rem}
+.tile .value{font:600 2.25rem/1.15 var(--serif);margin-top:4px}
+.tile .note{color:var(--muted);font-size:.8125rem;margin-top:2px}
+.chart-card{position:relative}
+.chart-card svg{width:100%;height:auto;display:block}
+.grid{stroke:var(--line);stroke-width:1}.axis{stroke:var(--line-2);stroke-width:1}.tick{fill:var(--muted);font-size:11px}
+.bar{fill:var(--series-2)}.hit:hover+.bar,.hit:focus+.bar{fill:var(--ink)}
+.tooltip{position:absolute;pointer-events:none;background:var(--ink);color:var(--surface);font-size:.8125rem;padding:4px 8px;border-radius:6px;white-space:nowrap;display:none;z-index:2}
+.legend{color:var(--ink-2);font-size:.8125rem;display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.swatch{width:10px;height:10px;border-radius:2px;background:var(--series-2);display:inline-block}
+details.table-view{margin-top:8px;font-size:.875rem;color:var(--ink-2)}details.table-view summary{cursor:pointer}
+details.table-view table{border-collapse:collapse;margin-top:8px;width:100%;max-width:420px}
+details.table-view th,details.table-view td{text-align:left;padding:4px 10px 4px 0;border-bottom:1px solid var(--line)}
+.feed{display:grid;gap:12px}
+.event{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:var(--surface)}
+.event .top{display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap}
+.event .headline{font-weight:650}
+.pill{font-size:.75rem;border:1px solid var(--line);border-radius:999px;padding:1px 10px;display:inline-flex;gap:6px;align-items:center;color:var(--ink-2);white-space:nowrap}
+.pill i{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block}
+.pill[data-level=warning] i{background:var(--warning)}.pill[data-level=danger] i{background:var(--critical)}
+.event .explain{color:var(--ink-2);margin:4px 0 6px;font-size:.9375rem}
+.event .meta{color:var(--muted);font-size:.8125rem}.event .tip{font-size:.875rem;margin-top:6px}
+.event details{margin-top:8px;font-size:.8125rem;color:var(--ink-2)}.event summary{cursor:pointer}
+.event dl{display:grid;grid-template-columns:max-content 1fr;gap:2px 12px;margin:8px 0 0}
+.event dt{color:var(--muted)}.event dd{margin:0;word-break:break-word;font-family:var(--mono)}
+.empty{color:var(--ink-2);padding:12px 2px}
+button.more{font-size:.875rem}
+.twocol{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}.twocol h3{margin-bottom:14px}
+.feed{grid-template-columns:repeat(auto-fill,minmax(460px,1fr));align-items:start}.feed>.empty,.feed>button.more{grid-column:1/-1}
+.guide{max-width:none}
+.bars{display:grid;gap:14px}.bars .name{display:flex;justify-content:space-between;font-size:.9rem;margin-bottom:4px}
+.bars .track{background:var(--hover);border-radius:4px;height:8px}.bars .fill{background:var(--series-1);border-radius:4px;height:8px;width:0}
+.sources{display:grid;gap:14px;margin:0;padding:0;list-style:none}
+.sources li{display:flex;justify-content:space-between;gap:10px;font-size:.9rem;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.sources li:last-child{border:0;padding:0}
+.sources .ip{font-family:var(--mono)}.sources .why{color:var(--muted);font-size:.8125rem}
+.guide{display:grid;gap:12px}
+.lvl{display:flex;gap:12px;align-items:flex-start}.lvl .dot{margin-top:7px;flex:none}
+.lvl .dot[data-c=ok]{background:var(--good)}.lvl .dot[data-c=warn]{background:var(--warning)}.lvl .dot[data-c=bad]{background:var(--critical)}
+.lvl p{margin:0}.lvl b{color:var(--ink)}
+@media (max-width:860px){.twocol{grid-template-columns:1fr}.feed{grid-template-columns:1fr}.tiles{grid-template-columns:1fr}.banner .title{font-size:1.2rem}}
+@media (prefers-reduced-motion:no-preference){.banner,.fill{transition:background-color .3s,width .3s}}
+</style>
+</head>
+<body>
+<div class="shell">
+<aside class="side" id="side" aria-label="Sections">
+  <div class="brand"><svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true"><path d="M13 2.5 22 6v6.6c0 5.1-3.6 9-9 10.9-5.4-1.9-9-5.8-9-10.9V6l9-3.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="m8.8 13 3 3 5.4-5.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Guard</div>
+  <nav class="nav">
+    <div class="ng"><div class="gl">Monitor</div><button type="button" class="ni" data-go="overview"><span class="lbl">Overview</span></button><button type="button" class="ni" data-go="feed"><span class="lbl">Live feed</span><span class="badge" id="nav-count"></span></button><button type="button" class="ni" data-go="breakdown"><span class="lbl">Breakdown</span></button></div>
+    <div class="ng"><div class="gl">Help</div><button type="button" class="ni" data-go="guide"><span class="lbl">Reading this page</span></button></div>
+  </nav>
+  <div class="sfoot"><p class="who">Updates automatically. Technical details are behind &ldquo;Technical details&rdquo; on each item.</p><button type="button" id="theme" class="ghost"></button></div>
+</aside>
+<div class="scrim" id="scrim" hidden></div>
+<div class="main">
+<header class="topbar">
+  <button type="button" class="menu-btn" id="menu" aria-label="Open menu" aria-expanded="false" aria-controls="side">Menu</button>
+  <h1>Live Security Monitor</h1>
+  <div class="chips">
+    <span class="chip" id="mode">Loading&hellip;</span>
+    <span class="chip" id="live" data-live="no"><span class="dot"></span><span id="live-text">Connecting&hellip;</span></span>
+  </div>
+</header>
+<main class="content">
+  <div class="banner" id="banner" data-level="ok" role="status" aria-live="polite">
+    <div class="icon" id="banner-icon" aria-hidden="true">&#10003;</div>
+    <div><div class="title" id="banner-title">Checking&hellip;</div><div class="msg" id="banner-msg"></div></div>
+  </div>
+  <span id="sect" hidden></span>
+
+  <section class="panel" id="p-overview" aria-label="Overview">
+    <div class="tiles" aria-label="Last 24 hours">
+      <div class="card tile"><div class="label">Visits (last 24 hours)</div><div class="value" id="t-requests">&ndash;</div></div>
+      <div class="card tile"><div class="label">Threats spotted</div><div class="value" id="t-threats">&ndash;</div></div>
+      <div class="card tile"><div class="label">Requests blocked</div><div class="value" id="t-blocked">&ndash;</div><div class="note" id="t-blocked-note"></div></div>
+    </div>
+    <section class="card chart-card" aria-label="Threats per minute">
+      <h3>Threats in the last hour</h3>
+      <div class="legend"><span class="swatch"></span> Threats per minute</div>
+      <div id="chart"></div>
+      <div class="tooltip" id="tooltip"></div>
+      <details class="table-view"><summary>View as a table</summary><div id="table"></div></details>
+    </section>
+  </section>
+
+  <section class="panel" id="p-feed" hidden aria-label="What is happening">
+    <h2>What&rsquo;s happening</h2><p class="sub">Newest threats first.</p>
+    <div class="feed" id="feed"></div>
+  </section>
+
+  <section class="panel" id="p-breakdown" hidden aria-label="Breakdown">
+    <h2>Breakdown</h2><p class="sub">What kind of attacks, and who is behind them. Last 24 hours.</p>
+    <div class="twocol">
+      <section class="card" aria-label="Kinds of attacks"><h3>Kinds of attacks</h3><div class="bars" id="kinds"></div></section>
+      <section class="card" aria-label="Top sources"><h3>Where threats come from</h3><ul class="sources" id="sources"></ul></section>
+    </div>
+  </section>
+
+  <section class="panel" id="p-guide" hidden aria-label="Reading this page">
+    <h2>Reading this page</h2><p class="sub">What the colors and numbers mean.</p>
+    <div class="card guide">
+      <div class="lvl"><span class="dot" data-c="ok"></span><p><b>Green:</b> nothing suspicious in the last 5 minutes.</p></div>
+      <div class="lvl"><span class="dot" data-c="warn"></span><p><b>Yellow:</b> something looks suspicious and is worth a look.</p></div>
+      <div class="lvl"><span class="dot" data-c="bad"></span><p><b>Red:</b> an attack is under way. Open the live feed for what to do.</p></div>
+      <p><b>Monitoring only</b> means threats are logged but not stopped. <b>Blocking attacks</b> means dangerous requests get a 403 and repeat offenders a 429.</p>
+      <p><b>Risk score</b> in Technical details goes from 0 to 100. Higher means more likely to be an attack.</p>
+    </div>
+  </section>
+</main>
+</div>
+</div>
+<script nonce="__NONCE__">
+(function(){"use strict";
+var DEFAULT="overview",current=null,side=document.getElementById("side"),scrim=document.getElementById("scrim");
+function $(i){return document.getElementById(i)}
+function menu(o){side.setAttribute("data-open",String(o));scrim.hidden=!o;$("menu").setAttribute("aria-expanded",String(o))}
+function route(){
+  var n=(location.hash||"").slice(1),found=false;
+  document.querySelectorAll(".panel").forEach(function(p){if(p.id==="p-"+n)found=true});
+  if(!found)n=DEFAULT;
+  if(n!==current){
+    document.querySelectorAll(".panel").forEach(function(p){p.hidden=p.id!=="p-"+n});
+    document.querySelectorAll(".ni").forEach(function(b){if(b.getAttribute("data-go")===n)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});
+    var t=$("sect");if(t){var b=document.querySelector('.ni[data-go="'+n+'"] .lbl');t.textContent=b?b.textContent:""}
+    if(current!==null)window.scrollTo(0,0);
+    current=n;
+  }
+  menu(false);
+}
+function go(n){if(location.hash!=="#"+n)location.hash=n;route()}
+document.addEventListener("click",function(e){var b=e.target.closest("[data-go]");if(b)go(b.getAttribute("data-go"))});
+window.addEventListener("hashchange",route);
+$("menu").addEventListener("click",function(){menu(side.getAttribute("data-open")!=="true")});
+scrim.addEventListener("click",function(){menu(false)});
+document.addEventListener("keydown",function(e){if(e.key==="Escape")menu(false)});
+var tb=$("theme");
+function label(){tb.textContent=document.documentElement.getAttribute("data-theme")==="dark"?"Switch to light theme":"Switch to dark theme"}
+tb.addEventListener("click",function(){var t=document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark";document.documentElement.setAttribute("data-theme",t);try{localStorage.setItem("guard-theme",t)}catch(e){}label()});
+label();window.guardNav={go:go};route();
+})();
+</script>
+<script nonce="__NONCE__">
+(function () {
+  "use strict";
+  var SVGNS = "http://www.w3.org/2000/svg";
+  var snap = null;
+  var openIds = new Set();   // which "technical details" panels the user has opened
+  var feedLimit = 12;        // how many feed items are shown ("Show more" raises it)
+
+  function $(id) { return document.getElementById(id); }
+  // All dynamic text goes through textContent (never an HTML-parsing API): attackers control a lot of it.
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined && text !== null) e.textContent = text;
+    return e;
+  }
+  function svg(tag, attrs) {
+    var e = document.createElementNS(SVGNS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+  function fmt(n) { return Number(n).toLocaleString(); }
+  function ago(ts) {
+    var s = Math.max(0, Math.round(Date.now() / 1000 - ts));
+    if (s < 10) return "just now";
+    if (s < 60) return s + " sec ago";
+    var m = Math.floor(s / 60);
+    if (m < 60) return m + " min ago";
+    var h = Math.floor(m / 60);
+    return h < 24 ? h + " h ago" : Math.floor(h / 24) + " d ago";
+  }
+  function clock(ts) {
+    return new Date(ts * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+  function niceTop(m) {
+    if (m <= 4) return 4;
+    for (var p = 10; ; p *= 10) {
+      var f = [1, 2, 4];
+      for (var i = 0; i < 3; i++) if (p * f[i] >= m) return p * f[i];
+    }
+  }
+
+  function renderStatus(s, mode) {
+    var icons = { ok: "✓", warning: "!", danger: "⚠" };
+    $("banner").setAttribute("data-level", s.level);
+    $("banner-icon").textContent = icons[s.level] || "?";
+    $("banner-title").textContent = s.title;
+    $("banner-msg").textContent = s.message;
+    $("mode").textContent = mode === "block" ? "Blocking attacks: ON" : "Monitoring only (not blocking)";
+  }
+
+  function renderTiles(t, mode) {
+    $("t-requests").textContent = fmt(t.requests);
+    $("t-threats").textContent = fmt(t.threats);
+    $("t-blocked").textContent = fmt(t.blocked);
+    $("t-blocked-note").textContent = mode === "block" ? "" : "Monitoring mode: threats are logged, not blocked.";
+  }
+
+  function renderChart(points) {
+    var W = 640, H = 170, L = 34, R = 8, T = 8, B = 24;
+    var plotW = W - L - R, plotH = H - T - B;
+    var max = 0;
+    points.forEach(function (p) { if (p.threats > max) max = p.threats; });
+    var top = niceTop(max);
+    var root = svg("svg", { viewBox: "0 0 " + W + " " + H, role: "img",
+      "aria-label": "Bar chart of threats per minute over the last hour" });
+    [0, top / 2, top].forEach(function (v) {
+      var y = T + plotH - (v / top) * plotH;
+      root.appendChild(svg("line", { x1: L, x2: W - R, y1: y, y2: y, "class": v === 0 ? "axis" : "grid" }));
+      var label = svg("text", { x: L - 6, y: y + 4, "text-anchor": "end", "class": "tick" });
+      label.textContent = String(v);
+      root.appendChild(label);
+    });
+    var slot = plotW / points.length, barW = Math.max(2, slot - 2);
+    var tip = $("tooltip"), box = $("chart");
+    points.forEach(function (p, i) {
+      var x = L + i * slot + (slot - barW) / 2;
+      var h = (p.threats / top) * plotH;
+      var hit = svg("rect", { x: L + i * slot, y: T, width: slot, height: plotH, fill: "transparent", "class": "hit", tabindex: "-1" });
+      root.appendChild(hit);
+      if (p.threats > 0) {
+        root.appendChild(svg("rect", { x: x, y: T + plotH - Math.max(h, 2), width: barW, height: Math.max(h, 2), rx: 2, "class": "bar" }));
+      } else {
+        root.appendChild(svg("rect", { x: x, y: T + plotH, width: 0, height: 0, "class": "bar" }));
+      }
+      hit.addEventListener("mousemove", function (ev) {
+        tip.textContent = clock(p.t) + ": " + p.threats + (p.threats === 1 ? " threat" : " threats") + ", " + fmt(p.requests) + " visits";
+        var r = box.getBoundingClientRect(), c = box.parentNode.getBoundingClientRect();
+        tip.style.display = "block";
+        tip.style.left = Math.min(ev.clientX - c.left + 12, c.width - tip.offsetWidth - 4) + "px";
+        tip.style.top = (r.top - c.top + 20) + "px";
+      });
+      hit.addEventListener("mouseleave", function () { tip.style.display = "none"; });
+    });
+    [[0, "60 min ago"], [Math.floor(points.length / 2), "30 min ago"], [points.length - 1, "now"]].forEach(function (pair) {
+      var x = L + pair[0] * slot + slot / 2;
+      var anchor = pair[0] === 0 ? "start" : (pair[0] === points.length - 1 ? "end" : "middle");
+      var t = svg("text", { x: x, y: H - 6, "text-anchor": anchor, "class": "tick" });
+      t.textContent = pair[1];
+      root.appendChild(t);
+    });
+    $("chart").replaceChildren(root);
+
+    var rows = points.filter(function (p) { return p.threats > 0; });
+    var holder = $("table");
+    if (!rows.length) { holder.replaceChildren(el("p", null, "No threats in the last hour.")); return; }
+    var table = el("table");
+    var head = el("tr");
+    ["Time", "Threats", "Visits"].forEach(function (h) { head.appendChild(el("th", null, h)); });
+    table.appendChild(head);
+    rows.forEach(function (p) {
+      var tr = el("tr");
+      tr.appendChild(el("td", null, clock(p.t)));
+      tr.appendChild(el("td", null, String(p.threats)));
+      tr.appendChild(el("td", null, fmt(p.requests)));
+      table.appendChild(tr);
+    });
+    holder.replaceChildren(table);
+  }
+
+  function renderKinds(list) {
+    var box = $("kinds");
+    if (!list.length) { box.replaceChildren(el("div", "empty", "Nothing yet.")); return; }
+    var max = list[0].count, nodes = list.map(function (k) {
+      var row = el("div", "row"), name = el("div", "name");
+      name.appendChild(el("span", null, k.label));
+      name.appendChild(el("span", null, fmt(k.count)));
+      var track = el("div", "track"), fill = el("div", "fill");
+      fill.style.width = Math.max(4, (k.count / max) * 100) + "%";
+      track.appendChild(fill);
+      row.appendChild(name); row.appendChild(track);
+      return row;
+    });
+    box.replaceChildren.apply(box, nodes);
+  }
+
+  function renderSources(list) {
+    var box = $("sources");
+    if (!list.length) { box.replaceChildren(el("li", "empty", "No suspicious visitors.")); return; }
+    var nodes = list.map(function (s) {
+      var li = el("li");
+      var left = el("div");
+      left.appendChild(el("div", "ip", s.ip || "unknown"));
+      left.appendChild(el("div", "why", "mostly: " + s.top_label));
+      li.appendChild(left);
+      li.appendChild(el("div", null, fmt(s.count) + (s.count === 1 ? " threat" : " threats")));
+      return li;
+    });
+    box.replaceChildren.apply(box, nodes);
+  }
+
+  function renderFeed(events) {
+    var feed = $("feed");
+    if (!events.length) {
+      feed.replaceChildren(el("div", "empty", "No threats detected. Quiet is good."));
+      return;
+    }
+    var hidden = Math.max(0, events.length - feedLimit);
+    var nodes = events.slice(0, feedLimit).map(function (e) {
+      var card = el("article", "event");
+      var top = el("div", "top");
+      top.appendChild(el("div", "headline", e.headline));
+      var pill = el("span", "pill");
+      pill.setAttribute("data-level", e.level);
+      pill.appendChild(el("i"));
+      pill.appendChild(document.createTextNode(e.severity_label));
+      top.appendChild(pill);
+      card.appendChild(top);
+      card.appendChild(el("div", "explain", e.explanation));
+      var meta = el("div", "meta");
+      meta.textContent = e.action_text + " · from " + (e.ip || "unknown") + " · ";
+      var time = el("span", null, ago(e.ts));
+      time.title = new Date(e.ts * 1000).toLocaleString();
+      time.setAttribute("data-ts", e.ts);
+      meta.appendChild(time);
+      card.appendChild(meta);
+      card.appendChild(el("div", "tip", "What you can do: " + e.advice));
+
+      var d = document.createElement("details");
+      d.appendChild(el("summary", null, "Technical details"));
+      var dl = el("dl");
+      var tech = e.technical;
+      [["Attack type", tech.type], ["Page", (tech.method || "") + " " + (e.path || "")],
+       ["Found in", tech.location], ["Matched text", tech.evidence], ["Rules", tech.rules],
+       ["Risk score", tech.score === null ? "" : tech.score + " / 100"], ["Browser/tool", tech.user_agent]
+      ].forEach(function (pair) {
+        if (pair[1]) { dl.appendChild(el("dt", null, pair[0])); dl.appendChild(el("dd", null, String(pair[1]))); }
+      });
+      d.appendChild(dl);
+      if (openIds.has(e.id)) d.open = true;
+      d.addEventListener("toggle", function () { d.open ? openIds.add(e.id) : openIds.delete(e.id); });
+      card.appendChild(d);
+      return card;
+    });
+    if (hidden > 0) {
+      var more = el("button", "more", "Show " + Math.min(hidden, 12) + " more (" + hidden + " hidden)");
+      more.type = "button";
+      more.addEventListener("click", function () { feedLimit += 12; renderFeed(snap.events); });
+      nodes.push(more);
+    }
+    feed.replaceChildren.apply(feed, nodes);
+  }
+
+  function renderAll(s) {
+    snap = s;
+    $("nav-count").textContent = s.events.length ? String(s.events.length) : "";
+    renderStatus(s.status, s.mode);
+    renderTiles(s.totals, s.mode);
+    renderChart(s.timeline);
+    renderKinds(s.by_category);
+    renderSources(s.top_sources);
+    renderFeed(s.events);
+  }
+
+  function setLive(on) {
+    $("live").setAttribute("data-live", on ? "yes" : "no");
+    $("live-text").textContent = on ? "Live" : "Reconnecting…";
+  }
+
+  // "2 min ago" labels keep ticking between updates
+  setInterval(function () {
+    document.querySelectorAll("[data-ts]").forEach(function (n) { n.textContent = ago(Number(n.getAttribute("data-ts"))); });
+  }, 10000);
+
+  fetch("api/snapshot", { cache: "no-store" }).then(function (r) { return r.json(); }).then(renderAll).catch(function () {});
+  var source = new EventSource("stream");
+  source.onopen = function () { setLive(true); };
+  source.onerror = function () { setLive(false); };
+  source.onmessage = function (m) { setLive(true); renderAll(JSON.parse(m.data)); };
+})();
+</script>
+</body>
+</html>
