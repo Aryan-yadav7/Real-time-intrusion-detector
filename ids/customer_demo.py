@@ -20,15 +20,18 @@ API_KEY = os.getenv("GUARD_API_KEY")
 if not API_KEY:
     raise SystemExit("Set GUARD_API_KEY first (copy it from the platform when you add a website).")
 
+SERVER = os.getenv("GUARD_SERVER", "http://127.0.0.1:9000")
+MODE = os.getenv("GUARD_MODE", "detect")
+
 app = FastAPI(title="Customer demo site")
 
 from .sdk import GuardMiddleware
 
 app.add_middleware(
     GuardMiddleware,
-    api_key="gk_elZU1lVmttbnkXaAehBZeLpicSIVyTwszbx1gLrA-DA",
-    server="http://127.0.0.1:9000",
-    mode="detect",   # use "block" to also stop attacks
+    api_key=API_KEY,
+    server=SERVER,
+    mode=MODE,
 )
 
 

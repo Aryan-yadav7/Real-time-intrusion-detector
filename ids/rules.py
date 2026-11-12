@@ -96,13 +96,13 @@ RULES: list[Rule] = [
        r"""\.\.[/\\]"""),
     _r("PT-002", "path_traversal", "high",
        "Access to well-known system files",
-       r"""/etc/(?:passwd|shadow|hosts)\b|\b(?:boot|win)\.ini\b|c:\\windows"""),
+       r"""/etc/(?:passwd|shadow|hosts)\b|\b(?:boot|win)\.ini\b|c:[/\\]windows"""),
 
     # ---- Command injection ---------------------------------------------
     _r("CMD-001", "command_injection", "high",
        "Shell separator followed by a command",
-       r"""(?:;|&&|\|\||\||`)\s*(?:cat|ls|id|whoami|uname|wget|curl|nc|ncat|"""
-       r"""bash|sh|powershell|cmd|ping|rm)\b"""),
+       r"""(?:;|&&|\|\||\||`|[\r\n])\s*(?:cat|ls|id|whoami|uname|wget|curl|nc|ncat|"""
+       r"""bash|sh|powershell|cmd|ping|rm|dir|type|certutil)\b"""),
     _r("CMD-002", "command_injection", "medium",
        "Command substitution $(...)",
        r"""\$\(\s*[a-z]"""),
@@ -153,6 +153,10 @@ RULES: list[Rule] = [
        r"""|/(?:backup|dump|database|db|site)\.(?:sql|zip|tar|tgz|gz|bak|7z)\b"""
        r"""|/server-status|/actuator/(?:env|heapdump|beans)|/web-inf/|/cgi-bin/""",
        only_in=("path",)),
+    _r("PROBE-002", "probe", "medium",
+       "Query parameter targeting a sensitive or secret file",
+       r"""(?:\b|/|=)\.(?:env|git|aws|ssh|htaccess|htpasswd)\b""",
+       only_in=("query",)),
 
     # ---- Scanning tools -------------------------------------------------
     _r("SCAN-001", "scanner", "medium",
@@ -173,7 +177,7 @@ _SECRET = re.compile(
 )
 
 
-def normalize(text: str) -> str:
+def _normalize_variant(text: str, remove_comments: bool = False) -> str:
     """Undo common evasion tricks so the rules see the real payload."""
     text = text.replace("\x00", "")
     for _ in range(3):  # handles double/triple URL-encoding
@@ -181,13 +185,20 @@ def normalize(text: str) -> str:
         if decoded == text:
             break
         text = decoded
-    text = _SQL_COMMENT.sub(" ", text)  # un/**/ion -> un ion, union/**/select -> union select
+    if remove_comments:
+        text = _SQL_COMMENT.sub("", text)  # un/**/ion -> union, sel/**/ect -> select
+    else:
+        text = _SQL_COMMENT.sub(" ", text)  # un/**/ion -> un ion, union/**/select -> union select
     for _ in range(3):  # un-nest ${${lower:j}ndi:...} style tricks
         simplified = _LOOKUP.sub(r"\1", text)
         if simplified == text:
             break
         text = simplified
     return _WS.sub(" ", text).strip().lower()
+
+
+def normalize(text: str) -> str:
+    return _normalize_variant(text, remove_comments=False)
 
 
 def _evidence(match: "re.Match[str]", location: str) -> str:
@@ -209,20 +220,31 @@ def inspect_request(method: str, path: str, query: str, headers: dict, body: str
         if not raw:
             continue
         norm = normalize(raw[:MAX_TEXT])
-        for rule in RULES:
-            if rule.only_in and location not in rule.only_in:
-                continue
-            m = rule.pattern.search(norm)
-            if m:
-                findings.append(Finding(
-                    rule_id=rule.id,
-                    category=rule.category,
-                    severity=rule.severity,
-                    score=SEVERITY_SCORE[rule.severity],
-                    description=rule.description,
-                    location=location,
-                    evidence=_evidence(m, location),
-                ))
+        variants = [norm]
+        if "/*" in raw:
+            collapsed = _normalize_variant(raw[:MAX_TEXT], remove_comments=True)
+            if collapsed != norm:
+                variants.append(collapsed)
+
+        matched_rules = set()
+        for variant in variants:
+            for rule in RULES:
+                if rule.id in matched_rules:
+                    continue
+                if rule.only_in and location not in rule.only_in:
+                    continue
+                m = rule.pattern.search(variant)
+                if m:
+                    matched_rules.add(rule.id)
+                    findings.append(Finding(
+                        rule_id=rule.id,
+                        category=rule.category,
+                        severity=rule.severity,
+                        score=SEVERITY_SCORE[rule.severity],
+                        description=rule.description,
+                        location=location,
+                        evidence=_evidence(m, location),
+                    ))
     findings.sort(key=lambda f: f.score, reverse=True)
     return findings
 

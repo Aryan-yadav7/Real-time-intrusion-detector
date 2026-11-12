@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "guard-ids"
+version = "0.2.0"
+description = "Real-Time Web Intrusion Detection System (IDS) and Central Security Monitoring Platform"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+    { name = "Aryan" }
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Security",
+    "Topic :: Internet :: WWW/HTTP :: WSGI :: Middleware",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+    "fastapi>=0.100.0",
+    "uvicorn[standard]>=0.20.0",
+    "pydantic>=2.0.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0.0",
+    "httpx>=0.25.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["ids*", "scripts*"]

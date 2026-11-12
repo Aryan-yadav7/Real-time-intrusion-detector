@@ -19,20 +19,32 @@ from pydantic import BaseModel
 
 from .dashboard import create_dashboard_router
 from .middleware import IDSMiddleware
+from .sdk import GuardMiddleware
 
 DB_PATH = os.getenv("IDS_DB", "ids.db")
 MODE = os.getenv("IDS_MODE", "detect")
 SITE_ID = "demo"
+API_KEY = os.getenv("GUARD_API_KEY")
 
 app = FastAPI(title="Demo target site")
 
-from ids.sdk import GuardMiddleware
-app.add_middleware(
-    GuardMiddleware,
-    api_key="gk_kPDxKhbqmeL_WOTmVy1pcjBm4pd4Zqg44H_AYTU4rg4",
-    server="http://127.0.0.1:9000",
-    mode="detect",   # use "block" to also stop attacks
-)
+if API_KEY:
+    app.add_middleware(
+        GuardMiddleware,
+        api_key=API_KEY,
+        server=os.getenv("GUARD_SERVER", "http://127.0.0.1:9000"),
+        mode=MODE,
+        exempt_prefixes=("/ids",),
+    )
+else:
+    app.add_middleware(
+        IDSMiddleware,
+        db_path=DB_PATH,
+        site_id=SITE_ID,
+        mode=MODE,
+        exempt_prefixes=("/ids",),
+    )
+
 app.include_router(create_dashboard_router(DB_PATH, SITE_ID, MODE), prefix="/ids")
 
 

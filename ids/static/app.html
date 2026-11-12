@@ -270,7 +270,10 @@ app.add_middleware(
       <div class="key"><code id="key-text"></code><button type="button" id="copy-key">Copy key</button></div>
       <p>Add these lines to your website&rsquo;s Python code:</p>
       <pre id="snippet"></pre>
-      <button type="button" id="close-connect">I&rsquo;ve saved it</button>
+      <div class="cta">
+        <button type="button" id="copy-snippet" class="btn">Copy snippet</button>
+        <button type="button" id="close-connect" class="primary">I&rsquo;ve saved it</button>
+      </div>
     </div>
     <div class="card addsite">
       <h3>Add a website</h3>
@@ -500,6 +503,13 @@ label();window.guardNav={go:go};route();
     if (navigator.clipboard) navigator.clipboard.writeText(key).then(function () {
       $("copy-key").textContent = "Copied";
       setTimeout(function () { $("copy-key").textContent = "Copy key"; }, 1500);
+    });
+  });
+  $("copy-snippet").addEventListener("click", function () {
+    var text = $("snippet").textContent;
+    if (navigator.clipboard) navigator.clipboard.writeText(text).then(function () {
+      $("copy-snippet").textContent = "Copied snippet!";
+      setTimeout(function () { $("copy-snippet").textContent = "Copy snippet"; }, 1500);
     });
   });
 

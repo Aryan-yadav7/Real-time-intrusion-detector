@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS requests (
     blocked   INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_requests_site_ts ON requests(site_id, ts);
+CREATE INDEX IF NOT EXISTS idx_requests_ts ON requests(ts);
 
 CREATE TABLE IF NOT EXISTS events (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -42,6 +43,7 @@ CREATE TABLE IF NOT EXISTS events (
     action     TEXT NOT NULL            -- 'detected' or 'blocked'
 );
 CREATE INDEX IF NOT EXISTS idx_events_site_ts ON events(site_id, ts);
+CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts);
 """
 
 
@@ -112,6 +114,63 @@ def recent_events(db_path, site_id=None, limit=50, since=None) -> list[dict]:
             (*params, limit),
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def query_events(db_path, site_id=None, limit=50, offset=0, since=None,
+                 category=None, action=None, severity=None, ip=None, search=None) -> list[dict]:
+    clauses = ["(? IS NULL OR site_id = ?)", "ts >= ?"]
+    params: list = [site_id, site_id, since or 0]
+    if category:
+        clauses.append("category = ?")
+        params.append(category)
+    if action:
+        clauses.append("action = ?")
+        params.append(action)
+    if severity:
+        clauses.append("severity = ?")
+        params.append(severity)
+    if ip:
+        clauses.append("ip LIKE ?")
+        params.append(f"%{ip}%")
+    if search:
+        clauses.append("(ip LIKE ? OR path LIKE ? OR evidence LIKE ? OR rule_id LIKE ?)")
+        term = f"%{search}%"
+        params.extend([term, term, term, term])
+
+    where = " AND ".join(clauses)
+    params.extend([limit, offset])
+    with closing(connect(db_path)) as conn:
+        rows = conn.execute(
+            f"SELECT * FROM events WHERE {where} ORDER BY ts DESC, id DESC LIMIT ? OFFSET ?",
+            params,
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def count_events(db_path, site_id=None, since=None, category=None, action=None,
+                 severity=None, ip=None, search=None) -> int:
+    clauses = ["(? IS NULL OR site_id = ?)", "ts >= ?"]
+    params: list = [site_id, site_id, since or 0]
+    if category:
+        clauses.append("category = ?")
+        params.append(category)
+    if action:
+        clauses.append("action = ?")
+        params.append(action)
+    if severity:
+        clauses.append("severity = ?")
+        params.append(severity)
+    if ip:
+        clauses.append("ip LIKE ?")
+        params.append(f"%{ip}%")
+    if search:
+        clauses.append("(ip LIKE ? OR path LIKE ? OR evidence LIKE ? OR rule_id LIKE ?)")
+        term = f"%{search}%"
+        params.extend([term, term, term, term])
+
+    where = " AND ".join(clauses)
+    with closing(connect(db_path)) as conn:
+        return conn.execute(f"SELECT COUNT(*) FROM events WHERE {where}", params).fetchone()[0]
 
 
 def summary(db_path, site_id=None, since=None) -> dict:

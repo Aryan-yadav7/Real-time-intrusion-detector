@@ -1,0 +1,16 @@
+services:
+  guard-platform:
+    build: .
+    container_name: guard-platform
+    ports:
+      - "9000:9000"
+    environment:
+      - GUARD_DB=/data/guard.db
+      - GUARD_COOKIE_SECURE=0
+    volumes:
+      - guard-data:/data
+    restart: unless-stopped
+
+volumes:
+  guard-data:
+

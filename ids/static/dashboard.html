@@ -101,6 +101,17 @@ button.more{font-size:.875rem}
 .sources li{display:flex;justify-content:space-between;gap:10px;font-size:.9rem;padding-bottom:12px;border-bottom:1px solid var(--line)}
 .sources li:last-child{border:0;padding:0}
 .sources .ip{font-family:var(--mono)}.sources .why{color:var(--muted);font-size:.8125rem}
+.feed-header{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px;margin-bottom:6px}
+.export-actions{display:flex;gap:8px;flex-wrap:wrap}
+.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:18px}
+.search-input{flex:1;min-width:200px;font:inherit;font-size:.875rem;color:var(--ink);background:var(--page);border:1px solid var(--line-2);border-radius:6px;padding:7px 12px}
+.filter-select{font:inherit;font-size:.875rem;color:var(--ink);background:var(--page);border:1px solid var(--line-2);border-radius:6px;padding:7px 10px;cursor:pointer}
+.filter-count{font-size:.8125rem;color:var(--muted);margin-left:auto}
+.ip-copy{cursor:pointer;font-family:var(--mono);padding:2px 6px;border-radius:4px;border:1px solid transparent;background:var(--hover);transition:border-color .15s}
+.ip-copy:hover{border-color:var(--accent)}
+.source-btn{cursor:pointer;background:none;border:0;padding:0;color:inherit;font:inherit;text-align:left}
+.source-btn:hover .ip{color:var(--accent);text-decoration:underline}
+.copy-pill{font-size:.7rem;padding:1px 6px;border-radius:4px;background:var(--accent-soft);color:var(--accent);margin-left:6px;display:inline-block}
 .guide{display:grid;gap:12px}
 .lvl{display:flex;gap:12px;align-items:flex-start}.lvl .dot{margin-top:7px;flex:none}
 .lvl .dot[data-c=ok]{background:var(--good)}.lvl .dot[data-c=warn]{background:var(--warning)}.lvl .dot[data-c=bad]{background:var(--critical)}
@@ -152,7 +163,33 @@ button.more{font-size:.875rem}
   </section>
 
   <section class="panel" id="p-feed" hidden aria-label="What is happening">
-    <h2>What&rsquo;s happening</h2><p class="sub">Newest threats first.</p>
+    <div class="feed-header">
+      <div>
+        <h2>What&rsquo;s happening</h2>
+        <p class="sub">Newest threats first. Search, filter, or export incident logs.</p>
+      </div>
+      <div class="export-actions">
+        <a id="btn-export-csv" class="btn" href="api/export?format=csv" download>Export CSV</a>
+        <a id="btn-export-json" class="btn" href="api/export?format=json" download>Export JSON</a>
+      </div>
+    </div>
+    <div class="toolbar">
+      <input type="search" id="feed-search" placeholder="Search by IP, path, rule ID, evidence..." class="search-input">
+      <select id="feed-action" class="filter-select">
+        <option value="">All actions</option>
+        <option value="blocked">Blocked only</option>
+        <option value="detected">Detected only</option>
+      </select>
+      <select id="feed-sev" class="filter-select">
+        <option value="">All severities</option>
+        <option value="critical">Critical</option>
+        <option value="high">High</option>
+        <option value="medium">Medium</option>
+        <option value="low">Low</option>
+      </select>
+      <button type="button" id="feed-reset" class="btn">Reset</button>
+      <span class="filter-count" id="feed-filter-count"></span>
+    </div>
     <div class="feed" id="feed"></div>
   </section>
 
@@ -343,13 +380,29 @@ label();window.guardNav={go:go};route();
     box.replaceChildren.apply(box, nodes);
   }
 
+  var searchQuery = "";
+  var actionFilter = "";
+  var sevFilter = "";
+
   function renderSources(list) {
     var box = $("sources");
     if (!list.length) { box.replaceChildren(el("li", "empty", "No suspicious visitors.")); return; }
     var nodes = list.map(function (s) {
       var li = el("li");
       var left = el("div");
-      left.appendChild(el("div", "ip", s.ip || "unknown"));
+      var btn = el("button", "source-btn");
+      btn.type = "button";
+      var ipEl = el("div", "ip", s.ip || "unknown");
+      btn.appendChild(ipEl);
+      btn.title = "Click to filter feed for this address";
+      btn.addEventListener("click", function () {
+        searchQuery = s.ip || "";
+        var searchInput = $("feed-search");
+        if (searchInput) searchInput.value = searchQuery;
+        if (window.guardNav && window.guardNav.go) window.guardNav.go("feed");
+        renderFeed(snap ? snap.events : []);
+      });
+      left.appendChild(btn);
       left.appendChild(el("div", "why", "mostly: " + s.top_label));
       li.appendChild(left);
       li.appendChild(el("div", null, fmt(s.count) + (s.count === 1 ? " threat" : " threats")));
@@ -362,10 +415,38 @@ label();window.guardNav={go:go};route();
     var feed = $("feed");
     if (!events.length) {
       feed.replaceChildren(el("div", "empty", "No threats detected. Quiet is good."));
+      var c0 = $("feed-filter-count");
+      if (c0) c0.textContent = "0 threats";
       return;
     }
-    var hidden = Math.max(0, events.length - feedLimit);
-    var nodes = events.slice(0, feedLimit).map(function (e) {
+    var q = searchQuery.toLowerCase().trim();
+    var filtered = events.filter(function (e) {
+      if (actionFilter && e.action !== actionFilter) return false;
+      if (sevFilter && e.severity !== sevFilter) return false;
+      if (q) {
+        var str = ((e.ip || "") + " " + (e.path || "") + " " + (e.headline || "") + " " +
+                   (e.technical ? (e.technical.evidence || "") + " " + (e.technical.rule_id || "") + " " + (e.technical.type || "") : "")).toLowerCase();
+        if (str.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+
+    var countEl = $("feed-filter-count");
+    if (countEl) {
+      if (q || actionFilter || sevFilter) {
+        countEl.textContent = "Showing " + filtered.length + " of " + events.length + " threats";
+      } else {
+        countEl.textContent = events.length + " total threats";
+      }
+    }
+
+    if (!filtered.length) {
+      feed.replaceChildren(el("div", "empty", "No threats matched your filter criteria."));
+      return;
+    }
+
+    var hidden = Math.max(0, filtered.length - feedLimit);
+    var nodes = filtered.slice(0, feedLimit).map(function (e) {
       var card = el("article", "event");
       var top = el("div", "top");
       top.appendChild(el("div", "headline", e.headline));
@@ -377,7 +458,19 @@ label();window.guardNav={go:go};route();
       card.appendChild(top);
       card.appendChild(el("div", "explain", e.explanation));
       var meta = el("div", "meta");
-      meta.textContent = e.action_text + " · from " + (e.ip || "unknown") + " · ";
+      meta.textContent = e.action_text + " · from ";
+      var ipSpan = el("span", "ip-copy", e.ip || "unknown");
+      ipSpan.title = "Click to copy address";
+      ipSpan.addEventListener("click", function () {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(e.ip || "");
+          var orig = ipSpan.textContent;
+          ipSpan.textContent = "Copied!";
+          setTimeout(function () { ipSpan.textContent = orig; }, 1200);
+        }
+      });
+      meta.appendChild(ipSpan);
+      meta.appendChild(document.createTextNode(" · "));
       var time = el("span", null, ago(e.ts));
       time.title = new Date(e.ts * 1000).toLocaleString();
       time.setAttribute("data-ts", e.ts);
@@ -404,7 +497,7 @@ label();window.guardNav={go:go};route();
     if (hidden > 0) {
       var more = el("button", "more", "Show " + Math.min(hidden, 12) + " more (" + hidden + " hidden)");
       more.type = "button";
-      more.addEventListener("click", function () { feedLimit += 12; renderFeed(snap.events); });
+      more.addEventListener("click", function () { feedLimit += 12; renderFeed(snap ? snap.events : []); });
       nodes.push(more);
     }
     feed.replaceChildren.apply(feed, nodes);
@@ -430,6 +523,40 @@ label();window.guardNav={go:go};route();
   setInterval(function () {
     document.querySelectorAll("[data-ts]").forEach(function (n) { n.textContent = ago(Number(n.getAttribute("data-ts"))); });
   }, 10000);
+
+  var searchInput = $("feed-search");
+  if (searchInput) {
+    searchInput.addEventListener("input", function () {
+      searchQuery = searchInput.value;
+      renderFeed(snap ? snap.events : []);
+    });
+  }
+  var actionSelect = $("feed-action");
+  if (actionSelect) {
+    actionSelect.addEventListener("change", function () {
+      actionFilter = actionSelect.value;
+      renderFeed(snap ? snap.events : []);
+    });
+  }
+  var sevSelect = $("feed-sev");
+  if (sevSelect) {
+    sevSelect.addEventListener("change", function () {
+      sevFilter = sevSelect.value;
+      renderFeed(snap ? snap.events : []);
+    });
+  }
+  var resetBtn = $("feed-reset");
+  if (resetBtn) {
+    resetBtn.addEventListener("click", function () {
+      searchQuery = "";
+      actionFilter = "";
+      sevFilter = "";
+      if (searchInput) searchInput.value = "";
+      if (actionSelect) actionSelect.value = "";
+      if (sevSelect) sevSelect.value = "";
+      renderFeed(snap ? snap.events : []);
+    });
+  }
 
   fetch("api/snapshot", { cache: "no-store" }).then(function (r) { return r.json(); }).then(renderAll).catch(function () {});
   var source = new EventSource("stream");

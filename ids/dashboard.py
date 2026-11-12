@@ -93,6 +93,51 @@ def create_dashboard_router(db_path: str, site_id: str = "demo", mode: str = "de
     def api_snapshot():
         return JSONResponse(snapshot(db_path, site_id, mode), headers={"Cache-Control": "no-store"})
 
+    @router.get("/api/events")
+    def api_events(limit: int = 50, offset: int = 0, category: str | None = None,
+                   action: str | None = None, severity: str | None = None,
+                   ip: str | None = None, search: str | None = None):
+        limit = min(max(1, limit), 200)
+        offset = max(0, offset)
+        rows = db.query_events(db_path, site_id, limit=limit, offset=offset,
+                               category=category, action=action, severity=severity,
+                               ip=ip, search=search)
+        total = db.count_events(db_path, site_id, category=category, action=action,
+                                severity=severity, ip=ip, search=search)
+        return JSONResponse({
+            "events": [describe_event(r) for r in rows],
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+        }, headers={"Cache-Control": "no-store"})
+
+    @router.get("/api/export")
+    def api_export(format: str = "csv"):
+        import csv
+        import io
+        from fastapi.responses import Response
+        rows = db.query_events(db_path, site_id, limit=5000, offset=0)
+        if format.lower() == "json":
+            return Response(
+                content=json.dumps([describe_event(r) for r in rows], indent=2),
+                media_type="application/json",
+                headers={"Content-Disposition": f'attachment; filename="guard_events_{site_id}.json"',
+                         "Cache-Control": "no-store"}
+            )
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["ID", "Timestamp", "IP", "Method", "Path", "Category", "Rule", "Severity", "Score", "Action", "Evidence"])
+        for r in rows:
+            writer.writerow([r.get("id"), r.get("ts"), r.get("ip"), r.get("method"), r.get("path"),
+                             r.get("category"), r.get("rule_id"), r.get("severity"), r.get("score"),
+                             r.get("action"), r.get("evidence")])
+        return Response(
+            content=output.getvalue(),
+            media_type="text/csv",
+            headers={"Content-Disposition": f'attachment; filename="guard_events_{site_id}.csv"',
+                     "Cache-Control": "no-store"}
+        )
+
     @router.get("/stream")
     async def stream():
         return StreamingResponse(

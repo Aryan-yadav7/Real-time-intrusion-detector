@@ -33,6 +33,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from . import auth, db
 from . import platform_db as pdb
 from .dashboard import snapshot, sse_messages
+from .messages import describe_event
 from .ratelimit import RateLimiter
 
 STATIC = Path(__file__).parent / "static"
@@ -323,6 +324,55 @@ def create_app(db_path: str | None = None, cookie_secure: bool | None = None,
         user = need_user(request)
         site = owned_site(user, site_id)
         return _json(snapshot(db_path, site["id"], site["reported_mode"]))
+
+    @app.get("/app/sites/{site_id}/api/events")
+    def site_events(site_id: str, request: Request, limit: int = 50, offset: int = 0,
+                    category: str | None = None, action: str | None = None,
+                    severity: str | None = None, ip: str | None = None, search: str | None = None):
+        import json as _json_mod
+        user = need_user(request)
+        site = owned_site(user, site_id)
+        limit = min(max(1, limit), 200)
+        offset = max(0, offset)
+        rows = db.query_events(db_path, site["id"], limit=limit, offset=offset,
+                               category=category, action=action, severity=severity,
+                               ip=ip, search=search)
+        total = db.count_events(db_path, site["id"], category=category, action=action,
+                                severity=severity, ip=ip, search=search)
+        return _json({
+            "events": [describe_event(r) for r in rows],
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+        })
+
+    @app.get("/app/sites/{site_id}/api/export")
+    def site_export(site_id: str, request: Request, format: str = "csv"):
+        import csv
+        import io
+        import json as _json_mod
+        from fastapi.responses import Response
+        user = need_user(request)
+        site = owned_site(user, site_id)
+        rows = db.query_events(db_path, site["id"], limit=5000, offset=0)
+        if format.lower() == "json":
+            return Response(
+                content=_json_mod.dumps([describe_event(r) for r in rows], indent=2),
+                media_type="application/json",
+                headers={"Content-Disposition": f'attachment; filename="guard_events_{site_id}.json"', **NO_STORE}
+            )
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["ID", "Timestamp", "IP", "Method", "Path", "Category", "Rule", "Severity", "Score", "Action", "Evidence"])
+        for r in rows:
+            writer.writerow([r.get("id"), r.get("ts"), r.get("ip"), r.get("method"), r.get("path"),
+                             r.get("category"), r.get("rule_id"), r.get("severity"), r.get("score"),
+                             r.get("action"), r.get("evidence")])
+        return Response(
+            content=output.getvalue(),
+            media_type="text/csv",
+            headers={"Content-Disposition": f'attachment; filename="guard_events_{site_id}.csv"', **NO_STORE}
+        )
 
     @app.get("/app/sites/{site_id}/stream")
     async def site_stream(site_id: str, request: Request):

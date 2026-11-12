@@ -127,8 +127,15 @@ class IDSMiddleware:
     def _client_ip(self, scope, headers) -> str:
         client = scope.get("client")
         ip = client[0] if client else "unknown"
-        if self.trust_proxy and "x-forwarded-for" in headers:
-            ip = headers["x-forwarded-for"].split(",")[0].strip()
+        if self.trust_proxy:
+            if "cf-connecting-ip" in headers:
+                return headers["cf-connecting-ip"].strip()
+            if "x-real-ip" in headers:
+                return headers["x-real-ip"].strip()
+            if "x-forwarded-for" in headers:
+                parts = [p.strip() for p in headers["x-forwarded-for"].split(",") if p.strip()]
+                if parts:
+                    return parts[0]
         return ip
 
     def _action_for(self, score: int) -> str:
@@ -161,10 +168,12 @@ class IDSMiddleware:
             return "", receive  # too large to buffer; body is not inspected
 
         messages, chunks, kept, total = [], [], 0, 0
+        fully_read = False
         while True:
             message = await receive()
             messages.append(message)
             if message["type"] != "http.request":
+                fully_read = True
                 break
             chunk = message.get("body", b"")
             total += len(chunk)
@@ -173,11 +182,14 @@ class IDSMiddleware:
                 chunks.append(piece)
                 kept += len(piece)
             if not message.get("more_body", False) or total > MAX_BUFFER:
+                fully_read = not message.get("more_body", False)
                 break
 
         async def replay():
             if messages:
                 return messages.pop(0)
+            if fully_read:
+                return {"type": "http.request", "body": b"", "more_body": False}
             return await receive()  # rest of a very large body / disconnect
 
         return b"".join(chunks).decode("utf-8", errors="replace"), replay

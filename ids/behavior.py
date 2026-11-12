@@ -82,7 +82,7 @@ def extract_username(body_text: str) -> str | None:
         data = None
     if isinstance(data, dict):
         for key, value in data.items():
-            if key.lower() in USERNAME_KEYS and isinstance(value, (str, int)):
+            if str(key).lower() in USERNAME_KEYS and isinstance(value, (str, int)):
                 return str(value)
         return None
     if isinstance(data, (list, str, int, float)):
@@ -121,7 +121,11 @@ class BehaviorTracker:
 
     # ------------------------------------------------------------------
     def is_login_path(self, path: str) -> bool:
-        return path.lower().rstrip("/") in self.config.login_paths
+        clean = path.lower().rstrip("/")
+        if clean in self.config.login_paths:
+            return True
+        parts = clean.split("/")
+        return bool(parts and parts[-1] in ("login", "signin", "sign-in", "token", "authenticate"))
 
     def on_request(self, ip: str, now: float | None = None) -> list[Finding]:
         """Call BEFORE the app runs. Detects floods."""
