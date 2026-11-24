@@ -130,6 +130,7 @@ button.more{font-size:.875rem}
 .form-group{margin-bottom:14px}
 .form-group label{font-size:.875rem;font-weight:600;display:block;margin-bottom:4px}
 .form-group input{width:100%;font:inherit;font-size:.9rem;color:var(--ink);background:var(--page);border:1px solid var(--line-2);border-radius:8px;padding:8px 12px}
+.form-group small{color:var(--muted);font-size:.8125rem;display:block;margin-top:4px}
 .tabs-sm{display:inline-flex;gap:4px;padding:3px;background:var(--page);border:1px solid var(--line);border-radius:8px;margin-bottom:10px}
 .tabs-sm button{border:0;border-radius:6px;padding:5px 12px;font-size:.8125rem;cursor:pointer;background:none;color:var(--ink-2)}
 .tabs-sm button[aria-pressed=true]{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
@@ -289,7 +290,7 @@ button.more{font-size:.875rem}
         <div class="form-group">
           <label for="alt-tg-chat">Telegram Chat ID (optional)</label>
           <input type="text" id="alt-tg-chat" placeholder="e.g. 123456789 (numeric user ID) or -100... (group)">
-          <small style="color:var(--muted);display:block;margin-top:4px">Tip: For private alerts, enter your numeric User ID (get it from <code>@userinfobot</code>) and message <b>/start</b> to your bot first.</small>
+          <small>Tip: For private alerts, enter your numeric User ID (get it from <code>@userinfobot</code>) and message <b>/start</b> to your bot first.</small>
         </div>
         <div class="form-group">
           <label for="alt-score">Minimum Risk Score to Alert (0-100)</label>
