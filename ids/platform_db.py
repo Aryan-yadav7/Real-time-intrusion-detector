@@ -39,22 +39,39 @@ CREATE TABLE IF NOT EXISTS sites (
     api_key_prefix TEXT NOT NULL,
     created_at     REAL NOT NULL,
     last_seen      REAL,
-    reported_mode  TEXT NOT NULL DEFAULT 'detect'
+    reported_mode  TEXT NOT NULL DEFAULT 'detect',
+    webhook_url    TEXT NOT NULL DEFAULT '',
+    telegram_bot_token TEXT NOT NULL DEFAULT '',
+    telegram_chat_id   TEXT NOT NULL DEFAULT '',
+    alert_min_score    INTEGER NOT NULL DEFAULT 70
 );
 CREATE INDEX IF NOT EXISTS idx_sites_user ON sites(user_id);
 """
 
-SITE_COLUMNS = "id, user_id, name, domain, api_key_prefix, created_at, last_seen, reported_mode"
+SITE_COLUMNS = "id, user_id, name, domain, api_key_prefix, created_at, last_seen, reported_mode, webhook_url, telegram_bot_token, telegram_chat_id, alert_min_score"
 
 
 class EmailTaken(Exception):
     pass
 
 
+def _migrate_sites(conn: sqlite3.Connection) -> None:
+    cols = {row["name"] for row in conn.execute("PRAGMA table_info(sites)")}
+    if "webhook_url" not in cols:
+        conn.execute("ALTER TABLE sites ADD COLUMN webhook_url TEXT NOT NULL DEFAULT ''")
+    if "telegram_bot_token" not in cols:
+        conn.execute("ALTER TABLE sites ADD COLUMN telegram_bot_token TEXT NOT NULL DEFAULT ''")
+    if "telegram_chat_id" not in cols:
+        conn.execute("ALTER TABLE sites ADD COLUMN telegram_chat_id TEXT NOT NULL DEFAULT ''")
+    if "alert_min_score" not in cols:
+        conn.execute("ALTER TABLE sites ADD COLUMN alert_min_score INTEGER NOT NULL DEFAULT 70")
+
+
 def init(db_path: str) -> None:
     db.init_db(db_path)  # requests + events tables (and migration)
     with closing(db.connect(db_path)) as conn, conn:
         conn.executescript(SCHEMA)
+        _migrate_sites(conn)
 
 
 # ---------------------------------------------------------------- users
@@ -144,6 +161,18 @@ def rotate_key(db_path, user_id: int, site_id: str) -> str | None:
             "UPDATE sites SET api_key_hash = ?, api_key_prefix = ? WHERE id = ? AND user_id = ?",
             (key_hash, prefix, site_id, user_id))
     return key if cur.rowcount else None
+
+
+def update_site_alerts(db_path, user_id: int, site_id: str, webhook_url: str = "",
+                       telegram_bot_token: str = "", telegram_chat_id: str = "",
+                       alert_min_score: int = 70) -> dict | None:
+    with closing(db.connect(db_path)) as conn, conn:
+        conn.execute(
+            "UPDATE sites SET webhook_url = ?, telegram_bot_token = ?, telegram_chat_id = ?, alert_min_score = ? "
+            "WHERE id = ? AND user_id = ?",
+            (webhook_url, telegram_bot_token, telegram_chat_id, alert_min_score, site_id, user_id)
+        )
+    return get_site(db_path, user_id, site_id)
 
 
 def delete_site(db_path, user_id: int, site_id: str) -> bool:

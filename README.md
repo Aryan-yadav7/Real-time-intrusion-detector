@@ -15,13 +15,19 @@ The platform supports multiple users, allowing each user to register their own w
 - Behaviour-based detection of brute force, flooding and suspicious scanning.
 - Threat scoring between 0 and 100.
 - Detect-only and blocking modes.
-- Live security dashboard with real-time updates.
-- User registration and authentication.
+- Live security dashboard with real-time updates via Server-Sent Events (SSE).
+- Multi-channel instant security alerts (Telegram Bot, Discord rich embeds, Slack, generic JSON webhooks) with flood cooldowns.
+- Guard AI Security Copilot: instant attack explanations, incident investigations ("Why was this IP blocked?"), and framework-specific code remediation (FastAPI, Flask, Django).
+- Firewall rule generation (`iptables`, `ufw`, `nginx`, `cloudflare`) for blocked attacker IPs.
+- Event log export to CSV and JSON formats for compliance and external security audits.
+- Connection verification ("Test probe") to confirm telemetry flow between the customer site and Guard platform.
+- IP allowlisting and reverse proxy support (`X-Forwarded-For`).
+- User registration and authentication with salted scrypt hashing.
 - Multiple website registration under different user accounts.
-- Unique API keys for individual websites.
-- Python SDK for integrating protection into customer websites.
+- Unique 256-bit API keys for individual websites.
+- Python SDK for integrating protection into customer ASGI websites.
 - Secure event ingestion through an API.
-- Separate dashboards and data for each website owner.
+- Separate dashboards and strict tenant isolation for each website owner.
 - Secure storage and privacy-focused event handling.
 
 ## 2. Types of Attacks Detected
@@ -164,12 +170,14 @@ The system consists of two main parts:
 | `ids/platform_app.py` | Main application for the central Guard platform, including registration, website management and event ingestion. |
 | `ids/static/app.html` | Frontend for account registration, login and website management. |
 
-### D. Dashboard and SDK
+### D. Dashboard, Copilot and Alerts
 
 | File | Description |
 |---|---|
-| `ids/dashboard.py` | Provides dashboard APIs, snapshots and Server-Sent Events for live updates. |
-| `ids/static/dashboard.html` | Frontend for displaying security status, attack information and recent events. |
+| `ids/dashboard.py` | Provides dashboard APIs, snapshots, query filtering, CSV/JSON export, firewall rules export and Server-Sent Events (SSE). |
+| `ids/static/dashboard.html` | Frontend for displaying security status, live attack feed, Copilot AI drawer, and alert configuration. |
+| `ids/copilot.py` | Guard AI Security Copilot: provides threat investigations, attack mechanism explanations, and framework-specific code remediation (FastAPI, Flask, Django). Works 100% offline via expert engine or optionally with Gemini LLM. |
+| `ids/alerts.py` | Multi-channel notification engine for Telegram, Discord, Slack, and generic webhooks with flood cooldowns and instant test verification. |
 | `ids/sdk.py` | Provides GuardMiddleware for integrating the IDS into customer Python/ASGI applications. |
 | `ids/customer_demo.py` | Demonstrates a customer website protected using the Guard SDK. |
 | `ids/demo_app.py` | Provides a sample website with the original IDS dashboard mounted at `/ids/`. |
@@ -182,6 +190,9 @@ The system consists of two main parts:
 | `tests/test_auth.py` | Tests authentication, password hashing and API key functionality. |
 | `tests/test_platform.py` | Tests platform functionality, website management and user isolation. |
 | `tests/test_sdk.py` | Tests SDK integration and middleware behaviour. |
+| `tests/test_alerts_copilot.py` | Tests Telegram, Discord, webhooks, alert cooldowns, Copilot database queries, and code remediation. |
+| `tests/test_enhancements.py` | Tests SQL comment evasion normalization, newline command injection, Windows paths, probe query parameters, CSV export, and event filtering. |
+| `tests/test_behavior_middleware.py` | Tests end-to-end middleware behavior detection and request blocking. |
 
 ### F. Attack Simulation
 
@@ -296,6 +307,37 @@ The Python SDK allows customers to integrate the IDS into their own websites.
 
 The middleware uses a sink object instead of directly accessing the database. This makes the system flexible and allows the same detection engine to work with different storage destinations.
 
+### 5.8 Guard AI Security Copilot
+
+The platform features an embedded **Security Copilot** (`ids/copilot.py`) accessible directly from the live dashboard:
+
+- **Incident Investigation:** Analyzes specific attacker IPs (e.g. *"Why was 198.51.100.99 blocked?"*) and breaks down the exact attack type, matched rules, threat score, targeted endpoint, and intercepted payload snippet.
+- **Actionable Code Remediation:** Delivers framework-specific safe code snippets for **FastAPI (SQLAlchemy)**, **Django (ORM)**, and **Flask (Werkzeug/psycopg2)** to fix vulnerabilities at the root cause.
+- **Security Posture Summaries:** Generates concise 24-hour threat summaries, top attacking IP sources, and recent incidents.
+- **Hybrid AI Architecture:** Runs 100% locally and offline out-of-the-box using the built-in Expert Knowledge Engine. If a `GEMINI_API_KEY` or `COPILOT_API_KEY` is provided, it seamlessly switches to cloud LLM intelligence (Gemini 1.5 Flash).
+
+### 5.9 Multi-Channel Alert Notifications
+
+Guard includes a unified real-time alert system (`ids/alerts.py`) with zero external dependencies:
+
+- **Telegram:** Sends HTML-formatted messages via the Telegram Bot API (`sendMessage`) with sanitized tags so exploit payloads never break chat formatting.
+- **Discord:** Sends rich visual embeds with color-coded severity (amber for detected threats, red for blocked attacks).
+- **Slack & Generic Webhooks:** Posts JSON-formatted payloads compatible with Slack Incoming Webhooks or SIEM ingest points.
+- **Spam & Flood Protection:** Implements an in-memory sliding cooldown (`is_on_cooldown`, default 60s per site/category) so flood or brute-force attacks generate a single actionable notification instead of thousands.
+- **Score Thresholds:** Websites can set an `alert_min_score` (default 70/100) to filter out low-severity background noise.
+- **Test Alert Helper:** One-click integration test via `/app/sites/{site_id}/api/alerts/test` to verify bot tokens and webhook URLs immediately.
+
+### 5.10 Firewall Rules Generation & Event Export
+
+Website owners can easily take perimeter defense actions outside the application layer:
+
+- **Firewall Rules Export:** Automatically converts blocked malicious IPs into ready-to-run rules for `iptables`, `ufw`, `nginx` (`deny IP;`), and Cloudflare Access Rules JSON (`GET /app/sites/{site_id}/api/firewall-rules?format=...`).
+- **Data Export:** Export recorded security incidents directly to **CSV** or **JSON** formats (`/app/sites/{site_id}/api/export?format=csv|json`) for compliance logs, incident reports, or external security analysis.
+
+### 5.11 Connection Verification (Test Probe)
+
+The platform provides a live connection probe (`POST /app/sites/{site_id}/api/test-probe`) to verify whether customer middleware is currently active and delivering telemetry (heartbeat within the last 5 minutes) without having to launch a simulated attack.
+
 ## 6. Multi-User Platform and Event Ingestion
 
 The Guard platform allows multiple customers to protect their websites independently.
@@ -361,6 +403,10 @@ Security is an important part of the platform.
 | Payload Validation | Schema checks, length limits and size restrictions | Prevents invalid or oversized event data. |
 | XSS Protection | Content Security Policy and safe text rendering | Protects dashboards from malicious scripts. |
 | Data Retention | Deletes events older than 30 days | Reduces unnecessary data storage. |
+| Notification Flood Shield | 60-second per-category sliding cooldown | Prevents notification exhaustion during high-volume flood attacks. |
+| Alert Payload Sanitization | HTML escaping of `<` and `>` | Ensures exploit strings cannot hijack or break Telegram and webhook rendering. |
+| IP Allowlisting | In-memory allowlist set | Bypasses inspection for trusted monitoring probes, health checks, or internal services. |
+| Evasion Normalization | Recursive unquoting & comment collapsing | Defeats attacker evasion attempts (e.g. `UN/**/ION SEL/**/ECT`, double URL-encoding). |
 
 Additional security measures:
 
@@ -372,6 +418,7 @@ Additional security measures:
 - Event batches are limited to 200 items.
 - Ingestion payloads have a 1 MB size limit.
 - Timestamps are clamped and control characters are stripped.
+- Fail-open architecture: any internal exception in middleware inspection lets the request pass safely without breaking customer application uptime.
 
 ## 8. Installation and Setup
 
@@ -503,16 +550,34 @@ The system provides environment variables and configuration options to control i
 
 | Setting | Description |
 |---|---|
-| `IDS_MODE` | Controls the original IDS detection or blocking mode. |
+| `IDS_MODE` | Controls the original IDS detection or blocking mode (`detect` or `block`). |
 | `GUARD_DB` | Sets the Guard platform database file. Default: `guard.db`. |
-| `GUARD_API_KEY` | Stores the customer's website API key. |
-| `GUARD_MODE` | Controls the customer SDK detection or blocking mode. |
-| `GUARD_SERVER` | Sets the address of the central Guard platform. |
-| `GUARD_COOKIE_SECURE` | Enables secure session cookies when using HTTPS. |
+| `GUARD_API_KEY` | Stores the customer's website API key (`gk_...`). |
+| `GUARD_MODE` | Controls the customer SDK detection or blocking mode (`detect` or `block`). |
+| `GUARD_SERVER` | Sets the address of the central Guard platform. Default: `http://127.0.0.1:9000`. |
+| `GUARD_COOKIE_SECURE` | Enables secure session cookies when using HTTPS (`1` or `0`). |
+| `GEMINI_API_KEY` | (Optional) Enables Google Gemini 1.5 Flash cloud LLM inside Guard AI Copilot. |
+| `COPILOT_API_KEY` | (Optional) Alias for AI Copilot LLM key. |
+
+### SDK & Middleware Initialization Parameters
+
+When mounting `GuardMiddleware` in an ASGI application:
+
+```python
+app.add_middleware(
+    GuardMiddleware,
+    api_key=os.getenv("GUARD_API_KEY"),
+    server="http://127.0.0.1:9000",
+    mode="block",                         # "detect" or "block"
+    block_threshold=70,                   # minimum score (0-100) to block
+    allowlist_ips=["127.0.0.1", "::1"],   # trusted IPs that bypass inspection
+    exempt_prefixes=["/health", "/docs"], # routes excluded from inspection
+    trust_proxy=True,                     # inspect X-Forwarded-For header
+    max_inspect_bytes=65536,              # maximum body bytes read into memory
+)
+```
 
 Additional behaviour detection settings, such as thresholds and time windows, can be modified through `BehaviorConfig` in `ids/behavior.py`.
-
-The middleware also supports configurable `mode` and `block_threshold` settings.
 
 ## 11. Known Limitations
 
@@ -520,31 +585,34 @@ The project currently has some limitations that can be improved in future versio
 
 1. **Regex-Based Detection:** Sophisticated attackers may bypass some detection rules using advanced obfuscation techniques.
 2. **Process-Based Behaviour Tracking:** Behaviour counters are stored in RAM and are maintained separately by each Python process.
-3. **IP-Based Blocking:** Users sharing the same public IP address may be blocked together.
-4. **Request Body Inspection:** Request bodies larger than 1 MB are not inspected.
-5. **Distributed DDoS Protection:** Large-scale attacks involving thousands of IP addresses require network-level protection.
-6. **Multiple Workers:** Rate-limit counters and session caches are currently per process. Redis would be required for shared state across multiple workers.
+3. **IP-Based Blocking:** Users sharing the same public IP address (NAT) may be blocked together.
+4. **Request Body Inspection:** Request bodies larger than 1 MB are not inspected to protect server memory.
+5. **Distributed DDoS Protection:** Large-scale volumetric attacks involving thousands of IP addresses require network-level protection (e.g., Cloudflare, AWS Shield).
+6. **Multiple Workers:** Rate-limit counters and session caches are currently per process. Redis is required for shared state across multiple distributed workers.
 7. **Account Recovery:** Email verification and password reset are not implemented yet.
-8. **HTTPS Requirement:** API keys must be transmitted over HTTPS in real deployments.
-9. **Database Scalability:** SQLite is suitable for this project, but PostgreSQL would be more appropriate for a large production platform.
+8. **HTTPS Requirement:** API keys must be transmitted over HTTPS in production deployments.
+9. **Database Scalability:** SQLite is fast and zero-configuration for this project, but PostgreSQL is recommended for high-volume enterprise ingestion.
 10. **SDK Support:** The current SDK supports Python/ASGI applications. Node.js SDK support is planned.
-11. **Additional Platform Features:** Team management, roles, billing and domain ownership verification are not implemented.
 
-## 12. Future Enhancements
+## 12. Recently Implemented Enhancements & Future Roadmap
 
-The following features are planned for future development:
+### Recently Implemented in Version 2.0
+- [x] **Multi-Channel Alert System (`ids/alerts.py`):** Telegram Bot API integration, Discord rich embeds, Slack webhooks, and generic JSON endpoints with flood cooldown protection.
+- [x] **Guard AI Security Copilot (`ids/copilot.py`):** Incident investigations ("Why was this IP blocked?"), attack explanations, and framework-specific code remediation (FastAPI, Flask, Django).
+- [x] **Per-Website Alert Configuration:** Custom webhook URLs, Telegram tokens, and minimum score thresholds configurable from the platform UI.
+- [x] **Firewall Rule Generation:** Instant export of blocked attacker IPs to `iptables`, `ufw`, `nginx` deny, and Cloudflare access rule formats.
+- [x] **Telemetry Test Probe:** One-click dashboard check verifying if the customer website's middleware is actively communicating.
+- [x] **Data Export:** Incident report downloads in **CSV** and **JSON** formats.
+- [x] **Evasion Defenses:** Double-URL decode normalization and SQL comment splitting (`/**/`) detection.
+- [x] **Trusted IP Allowlisting:** Support for skipping inspection on trusted monitoring probes and internal networks.
 
-- Email, Telegram and SMS security alerts.
-- Per-website alert configuration.
-- AI-based attack explanations.
-- AI security assistant or chatbot.
-- Machine learning-based attack classification.
-- Node.js SDK for JavaScript applications.
-- Security summaries and reports.
-- Additional detection rules for SSRF, XXE and open redirects.
-- Better distributed rate limiting using Redis.
-- PostgreSQL support for larger deployments.
-- Email verification and password recovery.
+### Planned Future Roadmap
+- [ ] Node.js / Express and Next.js middleware SDK.
+- [ ] Redis backend for distributed behavior counters across multi-worker deployments.
+- [ ] PostgreSQL / TimescaleDB support for enterprise-scale event ingestion.
+- [ ] Email notifications via SMTP / Resend.
+- [ ] Multi-user team management and role-based access control (RBAC).
+- [ ] Additional detection rules for SSRF, XXE, and open redirects.
 
 ## 13. Project Summary
 

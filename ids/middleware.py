@@ -34,8 +34,8 @@ class IDSMiddleware:
     def __init__(self, app, db_path: str = "ids.db", mode: str = "detect",
                  block_threshold: int = 70, site_id: str = "demo",
                  max_inspect_bytes: int = 65536, trust_proxy: bool = False,
-                 exempt_prefixes: tuple = (), behavior: bool = True,
-                 behavior_config: BehaviorConfig | None = None,
+                 exempt_prefixes: tuple = (), allowlist_ips: tuple = (),
+                 behavior: bool = True, behavior_config: BehaviorConfig | None = None,
                  tracker: BehaviorTracker | None = None, sink=None):
         if mode not in ("detect", "block"):
             raise ValueError("mode must be 'detect' or 'block'")
@@ -47,6 +47,7 @@ class IDSMiddleware:
         self.max_inspect_bytes = max_inspect_bytes
         self.trust_proxy = trust_proxy
         self.exempt_prefixes = tuple(p.rstrip("/") for p in exempt_prefixes)
+        self.allowlist_ips = set(allowlist_ips)
         self.tracker = tracker or (BehaviorTracker(behavior_config) if behavior else None)
         # Where results go: a local SQLite file (default) or, with the SDK, the Guard platform.
         self.sink = sink or LocalSink(db_path, site_id)
@@ -60,6 +61,9 @@ class IDSMiddleware:
         headers = {k.decode("latin-1").lower(): v.decode("latin-1")
                    for k, v in scope.get("headers", [])}
         ip = self._client_ip(scope, headers)
+        if ip in self.allowlist_ips:
+            await self.app(scope, receive, send)
+            return
         body_text, receive = await self._buffer_body(headers, receive)
 
         # 1. payload rules (one request on its own)

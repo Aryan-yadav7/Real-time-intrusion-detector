@@ -18,10 +18,10 @@ import secrets
 import time
 from pathlib import Path
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 
-from . import db
+from . import alerts, copilot, db
 from .behavior import BEHAVIOR_CATEGORIES
 from .messages import category_info, describe_event
 from .status import HIGH_SCORE, WINDOW_SECONDS, compute_status
@@ -76,9 +76,22 @@ async def sse_messages(db_path: str, site_id: str, mode: str = "detect",
             await asyncio.sleep(interval)
 
 
+_LOCAL_ALERTS: dict[str, dict[str, str | int]] = {}
+
+
+def get_local_alerts(site_id: str = "demo") -> dict[str, str | int]:
+    return _LOCAL_ALERTS.setdefault(site_id, {
+        "webhook_url": "",
+        "telegram_bot_token": "",
+        "telegram_chat_id": "",
+        "alert_min_score": 70,
+    })
+
+
 def create_dashboard_router(db_path: str, site_id: str = "demo", mode: str = "detect") -> APIRouter:
     """Mount with app.include_router(router, prefix="/ids") and exempt "/ids" in the middleware."""
     router = APIRouter()
+    _local_alerts = get_local_alerts(site_id)
 
     @router.get("/", response_class=HTMLResponse)
     def page():
@@ -137,6 +150,66 @@ def create_dashboard_router(db_path: str, site_id: str = "demo", mode: str = "de
             headers={"Content-Disposition": f'attachment; filename="guard_events_{site_id}.csv"',
                      "Cache-Control": "no-store"}
         )
+
+    @router.post("/api/chat")
+    async def api_chat(request: Request):
+        try:
+            body = await request.json()
+            message = str(body.get("message", "")).strip()
+        except Exception:
+            message = ""
+        ans = copilot.ask_copilot(message or "summary", site_id, db_path)
+        return JSONResponse(ans, headers={"Cache-Control": "no-store"})
+
+    @router.get("/api/firewall-rules")
+    def api_firewall_rules(format: str = "iptables"):
+        rows = db.query_events(db_path, site_id, limit=200, action="blocked")
+        ips = sorted({r["ip"] for r in rows if r.get("ip") and r["ip"] != "unknown"})
+        fmt_clean = format.lower().strip()
+        if fmt_clean == "ufw":
+            lines = [f"ufw deny from {ip} to any comment 'Guard IDS blocked'" for ip in ips]
+        elif fmt_clean == "nginx":
+            lines = [f"deny {ip};" for ip in ips]
+        elif fmt_clean == "cloudflare":
+            lines = [json.dumps({"mode": "block", "configuration": {"target": "ip", "value": ip}, "notes": "Guard IDS"}) for ip in ips]
+        else:
+            lines = [f"iptables -A INPUT -s {ip} -j DROP" for ip in ips]
+        return JSONResponse({"format": fmt_clean, "count": len(ips), "ips": ips, "rules": "\n".join(lines)},
+                            headers={"Cache-Control": "no-store"})
+
+    @router.get("/api/alerts")
+    def api_get_alerts():
+        return JSONResponse(_local_alerts, headers={"Cache-Control": "no-store"})
+
+    @router.post("/api/alerts")
+    async def api_save_alerts(request: Request):
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        _local_alerts["webhook_url"] = str(body.get("webhook_url", "")).strip()
+        _local_alerts["telegram_bot_token"] = str(body.get("telegram_bot_token", "")).strip()
+        _local_alerts["telegram_chat_id"] = str(body.get("telegram_chat_id", "")).strip()
+        if "alert_min_score" in body:
+            try:
+                _local_alerts["alert_min_score"] = int(body["alert_min_score"])
+            except Exception:
+                pass
+        return JSONResponse({"ok": True, "alerts": _local_alerts}, headers={"Cache-Control": "no-store"})
+
+    @router.post("/api/alerts/test")
+    async def api_test_alerts(request: Request):
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        cfg = {
+            "webhook_url": body.get("webhook_url") or _local_alerts.get("webhook_url"),
+            "telegram_bot_token": body.get("telegram_bot_token") or _local_alerts.get("telegram_bot_token"),
+            "telegram_chat_id": body.get("telegram_chat_id") or _local_alerts.get("telegram_chat_id"),
+        }
+        res = alerts.send_test_notification(cfg, site_name=site_id)
+        return JSONResponse(res, headers={"Cache-Control": "no-store"})
 
     @router.get("/stream")
     async def stream():

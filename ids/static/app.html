@@ -412,13 +412,31 @@ label();window.guardNav={go:go};route();
       stats.appendChild(box);
     });
     card.appendChild(stats);
+    var alertDesc = "Alerts: off";
+    if (s.webhook_url && s.has_telegram) alertDesc = "Alerts: Webhook + Telegram";
+    else if (s.webhook_url) alertDesc = "Alerts: Webhook";
+    else if (s.has_telegram) alertDesc = "Alerts: Telegram";
     card.appendChild(el("div", "meta",
-      "API key " + s.key_prefix + "…  ·  " + (s.mode === "block" ? "blocking attacks" : "monitoring only")));
+      "API key " + s.key_prefix + "…  ·  " + (s.mode === "block" ? "blocking attacks" : "monitoring only") + "  ·  " + alertDesc));
 
     var actions = el("div", "actions");
     var open = el("a", "btn", "Open dashboard");
     open.href = "/app/sites/" + encodeURIComponent(s.id) + "/";
     actions.appendChild(open);
+    var probe = el("button", null, "Test probe");
+    probe.type = "button";
+    probe.title = "Test if this site middleware is connected and sending telemetry";
+    probe.addEventListener("click", function () {
+      probe.textContent = "Testing…";
+      api("POST", "/app/sites/" + encodeURIComponent(s.id) + "/api/test-probe").then(function (d) {
+        probe.textContent = "Test probe";
+        alert(d.connected ? "Success: " + d.message : "Warning: " + d.message);
+      }).catch(function (e) {
+        probe.textContent = "Test probe";
+        alert("Probe check failed: " + e.message);
+      });
+    });
+    actions.appendChild(probe);
     var rotate = el("button", null, "New key");
     rotate.type = "button";
     rotate.addEventListener("click", function () {
@@ -462,6 +480,8 @@ label();window.guardNav={go:go};route();
       "    api_key=\"" + key + "\",\n" +
       "    server=\"" + location.origin + "\",\n" +
       "    mode=\"detect\",   # use \"block\" to also stop attacks\n" +
+      "    allowlist_ips=[\"127.0.0.1\"],       # optional trusted IPs\n" +
+      "    exempt_prefixes=[\"/stripe/webhook\"], # optional uninspected routes\n" +
       ")";
     show($("connect"), true);
     window.guardNav.go("sites"); $("connect").scrollIntoView({ behavior: "smooth", block: "start" });

@@ -30,7 +30,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from . import auth, db
+from . import alerts, auth, copilot, db
 from . import platform_db as pdb
 from .dashboard import snapshot, sse_messages
 from .messages import describe_event
@@ -67,6 +67,19 @@ class SiteIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(min_length=1, max_length=60)
     domain: str = Field(default="", max_length=100)
+
+
+class AlertConfigIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    webhook_url: str = Field(default="", max_length=500)
+    telegram_bot_token: str = Field(default="", max_length=200)
+    telegram_chat_id: str = Field(default="", max_length=100)
+    alert_min_score: int = Field(default=70, ge=0, le=100)
+
+
+class ChatIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    message: str = Field(min_length=1, max_length=1000)
 
 
 class RequestRec(BaseModel):
@@ -214,10 +227,16 @@ def create_app(db_path: str | None = None, cookie_secure: bool | None = None,
 
     def site_json(site: dict) -> dict:
         totals = db.summary(db_path, site["id"], time.time() - 86400)
-        return {"id": site["id"], "name": site["name"], "domain": site["domain"],
-                "key_prefix": site["api_key_prefix"], "created_at": site["created_at"],
-                "last_seen": site["last_seen"], "mode": site["reported_mode"],
-                "requests_24h": totals["requests"], "threats_24h": totals["threats"]}
+        return {
+            "id": site["id"], "name": site["name"], "domain": site["domain"],
+            "key_prefix": site["api_key_prefix"], "created_at": site["created_at"],
+            "last_seen": site["last_seen"], "mode": site["reported_mode"],
+            "requests_24h": totals["requests"], "threats_24h": totals["threats"],
+            "webhook_url": site.get("webhook_url", ""),
+            "has_telegram": bool(site.get("telegram_chat_id")),
+            "telegram_chat_id": site.get("telegram_chat_id", ""),
+            "alert_min_score": site.get("alert_min_score", 70),
+        }
 
     # ------------------------------------------------------------- pages
     @app.get("/", response_class=HTMLResponse)
@@ -374,6 +393,89 @@ def create_app(db_path: str | None = None, cookie_secure: bool | None = None,
             headers={"Content-Disposition": f'attachment; filename="guard_events_{site_id}.csv"', **NO_STORE}
         )
 
+    @app.get("/app/sites/{site_id}/api/alerts")
+    def get_alerts(site_id: str, request: Request):
+        user = need_user(request)
+        site = owned_site(user, site_id)
+        return _json({
+            "webhook_url": site.get("webhook_url", ""),
+            "telegram_bot_token": site.get("telegram_bot_token", ""),
+            "telegram_chat_id": site.get("telegram_chat_id", ""),
+            "alert_min_score": site.get("alert_min_score", 70),
+        })
+
+    @app.post("/app/sites/{site_id}/api/alerts")
+    def configure_alerts(site_id: str, cfg: AlertConfigIn, request: Request):
+        user = need_user(request)
+        need_csrf(request, user)
+        owned_site(user, site_id)
+        site = pdb.update_site_alerts(
+            db_path, user["user_id"], site_id,
+            webhook_url=cfg.webhook_url.strip(),
+            telegram_bot_token=cfg.telegram_bot_token.strip(),
+            telegram_chat_id=cfg.telegram_chat_id.strip(),
+            alert_min_score=cfg.alert_min_score,
+        )
+        return _json({"ok": True, "site": site_json(site)})
+
+    @app.post("/app/sites/{site_id}/api/alerts/test")
+    async def test_alerts(site_id: str, request: Request):
+        user = need_user(request)
+        need_csrf(request, user)
+        site = owned_site(user, site_id)
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        cfg = {
+            "webhook_url": body.get("webhook_url") or site.get("webhook_url"),
+            "telegram_bot_token": body.get("telegram_bot_token") or site.get("telegram_bot_token"),
+            "telegram_chat_id": body.get("telegram_chat_id") or site.get("telegram_chat_id"),
+        }
+        res = alerts.send_test_notification(cfg, site_name=site["name"])
+        return _json(res)
+
+    @app.post("/app/sites/{site_id}/api/chat")
+    def chat_copilot(site_id: str, body: ChatIn, request: Request):
+        user = need_user(request)
+        site = owned_site(user, site_id)
+        reply = copilot.ask_copilot(body.message, site["id"], db_path)
+        return _json(reply)
+
+    @app.get("/app/sites/{site_id}/api/firewall-rules")
+    def firewall_rules(site_id: str, request: Request, format: str = "iptables"):
+        import json as _json_mod
+        user = need_user(request)
+        site = owned_site(user, site_id)
+        rows = db.query_events(db_path, site["id"], limit=200, action="blocked")
+        ips = sorted({r["ip"] for r in rows if r.get("ip") and r["ip"] != "unknown"})
+        fmt_clean = format.lower().strip()
+        if fmt_clean == "ufw":
+            lines = [f"ufw deny from {ip} to any comment 'Guard IDS blocked'" for ip in ips]
+        elif fmt_clean == "nginx":
+            lines = [f"deny {ip};" for ip in ips]
+        elif fmt_clean == "cloudflare":
+            lines = [_json_mod.dumps({"mode": "block", "configuration": {"target": "ip", "value": ip}, "notes": "Guard IDS"}) for ip in ips]
+        else:
+            lines = [f"iptables -A INPUT -s {ip} -j DROP" for ip in ips]
+        return _json({"format": fmt_clean, "count": len(ips), "ips": ips, "rules": "\n".join(lines)})
+
+    @app.post("/app/sites/{site_id}/api/test-probe")
+    def test_probe(site_id: str, request: Request):
+        user = need_user(request)
+        need_csrf(request, user)
+        site = owned_site(user, site_id)
+        alive = bool(site.get("last_seen") and (time.time() - site["last_seen"]) < 300)
+        return _json({
+            "ok": True,
+            "site_id": site["id"],
+            "name": site["name"],
+            "mode": site["reported_mode"],
+            "connected": alive,
+            "last_seen": site.get("last_seen"),
+            "message": "SDK is connected and sending telemetry." if alive else "No telemetry received in the last 5 minutes. Verify GUARD_API_KEY on your server.",
+        })
+
     @app.get("/app/sites/{site_id}/stream")
     async def site_stream(site_id: str, request: Request):
         user = need_user(request)
@@ -435,6 +537,16 @@ def create_app(db_path: str | None = None, cookie_secure: bool | None = None,
                   for e in batch.events]
         await asyncio.to_thread(pdb.insert_batch, db_path, site["id"], requests, events)
         await asyncio.to_thread(pdb.touch_site, db_path, site["id"], batch.mode)
+        if events and (site.get("webhook_url") or site.get("telegram_chat_id")):
+            top_ev = max(events, key=lambda e: e.get("score", 0))
+            alert_cfg = {
+                "alerts_enabled": True,
+                "webhook_url": site.get("webhook_url"),
+                "telegram_bot_token": site.get("telegram_bot_token"),
+                "telegram_chat_id": site.get("telegram_chat_id"),
+                "alert_min_score": site.get("alert_min_score", 70),
+            }
+            asyncio.create_task(asyncio.to_thread(alerts.notify_event, site["name"], site["id"], top_ev, alert_cfg))
         counters["ingests"] += 1
         if counters["ingests"] % 1000 == 0:
             await asyncio.to_thread(pdb.purge_old, db_path, RETENTION_DAYS)

@@ -112,6 +112,27 @@ button.more{font-size:.875rem}
 .source-btn{cursor:pointer;background:none;border:0;padding:0;color:inherit;font:inherit;text-align:left}
 .source-btn:hover .ip{color:var(--accent);text-decoration:underline}
 .copy-pill{font-size:.7rem;padding:1px 6px;border-radius:4px;background:var(--accent-soft);color:var(--accent);margin-left:6px;display:inline-block}
+.chat-card{display:grid;grid-template-rows:1fr auto;gap:14px;background:var(--surface);border:1px solid var(--line);border-radius:14px;height:560px;padding:16px}
+.chat-history{overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-right:4px}
+.msg-row{display:flex;flex-direction:column;max-width:85%}
+.msg-row.user{align-self:flex-end}
+.msg-row.bot{align-self:flex-start}
+.msg-bubble{padding:10px 14px;border-radius:12px;font-size:.9rem;line-height:1.5}
+.msg-row.user .msg-bubble{background:var(--accent);color:var(--accent-ink);border-bottom-right-radius:2px}
+.msg-row.bot .msg-bubble{background:var(--page);color:var(--ink);border:1px solid var(--line);border-bottom-left-radius:2px}
+.msg-bubble pre{background:rgba(0,0,0,.06);border:1px solid var(--line);border-radius:6px;padding:8px 10px;overflow-x:auto;margin:6px 0}
+.pills-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.pill-btn{font-size:.8125rem;border-radius:999px;border:1px solid var(--line-2);background:var(--surface);padding:4px 10px;cursor:pointer;color:var(--ink-2)}
+.pill-btn:hover{background:var(--hover);color:var(--ink)}
+.chat-input-bar{display:flex;gap:8px}
+.chat-input{flex:1;font:inherit;font-size:.9rem;color:var(--ink);background:var(--page);border:1px solid var(--line-2);border-radius:8px;padding:9px 12px}
+.fw-code{background:var(--page);border:1px solid var(--line);border-radius:8px;padding:12px;font-family:var(--mono);font-size:.85rem;white-space:pre-wrap;max-height:280px;overflow-y:auto}
+.form-group{margin-bottom:14px}
+.form-group label{font-size:.875rem;font-weight:600;display:block;margin-bottom:4px}
+.form-group input{width:100%;font:inherit;font-size:.9rem;color:var(--ink);background:var(--page);border:1px solid var(--line-2);border-radius:8px;padding:8px 12px}
+.tabs-sm{display:inline-flex;gap:4px;padding:3px;background:var(--page);border:1px solid var(--line);border-radius:8px;margin-bottom:10px}
+.tabs-sm button{border:0;border-radius:6px;padding:5px 12px;font-size:.8125rem;cursor:pointer;background:none;color:var(--ink-2)}
+.tabs-sm button[aria-pressed=true]{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
 .guide{display:grid;gap:12px}
 .lvl{display:flex;gap:12px;align-items:flex-start}.lvl .dot{margin-top:7px;flex:none}
 .lvl .dot[data-c=ok]{background:var(--good)}.lvl .dot[data-c=warn]{background:var(--warning)}.lvl .dot[data-c=bad]{background:var(--critical)}
@@ -125,8 +146,19 @@ button.more{font-size:.875rem}
 <aside class="side" id="side" aria-label="Sections">
   <div class="brand"><svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true"><path d="M13 2.5 22 6v6.6c0 5.1-3.6 9-9 10.9-5.4-1.9-9-5.8-9-10.9V6l9-3.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="m8.8 13 3 3 5.4-5.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Guard</div>
   <nav class="nav">
-    <div class="ng"><div class="gl">Monitor</div><button type="button" class="ni" data-go="overview"><span class="lbl">Overview</span></button><button type="button" class="ni" data-go="feed"><span class="lbl">Live feed</span><span class="badge" id="nav-count"></span></button><button type="button" class="ni" data-go="breakdown"><span class="lbl">Breakdown</span></button></div>
-    <div class="ng"><div class="gl">Help</div><button type="button" class="ni" data-go="guide"><span class="lbl">Reading this page</span></button></div>
+    <div class="ng"><div class="gl">Monitor</div>
+      <button type="button" class="ni" data-go="overview"><span class="lbl">Overview</span></button>
+      <button type="button" class="ni" data-go="feed"><span class="lbl">Live feed</span><span class="badge" id="nav-count"></span></button>
+      <button type="button" class="ni" data-go="breakdown"><span class="lbl">Breakdown</span></button>
+    </div>
+    <div class="ng"><div class="gl">Tools</div>
+      <button type="button" class="ni" data-go="copilot"><span class="lbl">AI Copilot</span></button>
+      <button type="button" class="ni" data-go="firewall"><span class="lbl">Firewall Export</span></button>
+      <button type="button" class="ni" data-go="alerts"><span class="lbl">Alerts</span></button>
+    </div>
+    <div class="ng"><div class="gl">Help</div>
+      <button type="button" class="ni" data-go="guide"><span class="lbl">Reading this page</span></button>
+    </div>
   </nav>
   <div class="sfoot"><p class="who">Updates automatically. Technical details are behind &ldquo;Technical details&rdquo; on each item.</p><button type="button" id="theme" class="ghost"></button></div>
 </aside>
@@ -198,6 +230,78 @@ button.more{font-size:.875rem}
     <div class="twocol">
       <section class="card" aria-label="Kinds of attacks"><h3>Kinds of attacks</h3><div class="bars" id="kinds"></div></section>
       <section class="card" aria-label="Top sources"><h3>Where threats come from</h3><ul class="sources" id="sources"></ul></section>
+    </div>
+  </section>
+
+  <section class="panel" id="p-copilot" hidden aria-label="AI Security Copilot">
+    <h2>AI Security Copilot</h2>
+    <p class="sub">Ask questions about intercepted threats, attack vectors, or request framework remediation code.</p>
+    <div class="card chat-card">
+      <div class="chat-history" id="chat-history"></div>
+      <div>
+        <div class="pills-row" id="chat-pills">
+          <button type="button" class="pill-btn" data-ask="Why was the latest IP blocked?">Why was latest IP blocked?</button>
+          <button type="button" class="pill-btn" data-ask="How do I fix SQL injection in FastAPI?">Fix SQLi in FastAPI</button>
+          <button type="button" class="pill-btn" data-ask="Summarize attacks today">Attack summary</button>
+          <button type="button" class="pill-btn" data-ask="How do I mitigate Brute Force?">Brute force defense</button>
+        </div>
+        <form class="chat-input-bar" id="chat-form">
+          <input type="text" id="chat-input" placeholder="Ask Copilot (e.g., Why was this IP blocked? How to fix XSS?)" class="chat-input" required>
+          <button type="submit" class="primary" id="chat-send">Send</button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="p-firewall" hidden aria-label="Firewall Rules">
+    <h2>Edge Firewall Export</h2>
+    <p class="sub">Block malicious attacker addresses at your server or network firewall before traffic reaches Python.</p>
+    <div class="card">
+      <div class="tabs-sm" role="tablist">
+        <button type="button" id="fw-tab-iptables" aria-pressed="true" data-fmt="iptables">iptables</button>
+        <button type="button" id="fw-tab-ufw" aria-pressed="false" data-fmt="ufw">UFW</button>
+        <button type="button" id="fw-tab-nginx" aria-pressed="false" data-fmt="nginx">Nginx Deny</button>
+        <button type="button" id="fw-tab-cloudflare" aria-pressed="false" data-fmt="cloudflare">Cloudflare</button>
+      </div>
+      <p id="fw-count" class="sub"></p>
+      <div class="fw-code" id="fw-rules">Loading firewall rules&hellip;</div>
+      <p></p>
+      <div class="export-actions">
+        <button type="button" id="fw-copy" class="primary">Copy Rules</button>
+        <button type="button" id="fw-refresh" class="btn">Refresh</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="p-alerts" hidden aria-label="Alert Notifications">
+    <h2>Security Alert Notifications</h2>
+    <p class="sub">Receive instant alerts via Telegram, Discord, Slack, or custom webhooks when attacks occur.</p>
+    <div class="card narrow">
+      <form id="alert-form">
+        <div class="form-group">
+          <label for="alt-webhook">Discord / Slack / Generic Webhook URL</label>
+          <input type="url" id="alt-webhook" placeholder="https://discord.com/api/webhooks/... or https://hooks.slack.com/...">
+        </div>
+        <div class="form-group">
+          <label for="alt-tg-token">Telegram Bot Token (optional)</label>
+          <input type="text" id="alt-tg-token" placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz">
+        </div>
+        <div class="form-group">
+          <label for="alt-tg-chat">Telegram Chat ID (optional)</label>
+          <input type="text" id="alt-tg-chat" placeholder="e.g. 123456789 (numeric user ID) or -100... (group)">
+          <small style="color:var(--muted);display:block;margin-top:4px">Tip: For private alerts, enter your numeric User ID (get it from <code>@userinfobot</code>) and message <b>/start</b> to your bot first.</small>
+        </div>
+        <div class="form-group">
+          <label for="alt-score">Minimum Risk Score to Alert (0-100)</label>
+          <input type="number" id="alt-score" min="0" max="100" value="70">
+        </div>
+        <div class="msg" id="alert-status" hidden></div>
+        <p></p>
+        <div class="export-actions">
+          <button type="submit" class="primary" id="alt-save">Save Alert Settings</button>
+          <button type="button" class="btn" id="alt-test">Send Test Alert</button>
+        </div>
+      </form>
     </div>
   </section>
 
@@ -563,6 +667,267 @@ label();window.guardNav={go:go};route();
   source.onopen = function () { setLive(true); };
   source.onerror = function () { setLive(false); };
   source.onmessage = function (m) { setLive(true); renderAll(JSON.parse(m.data)); };
+
+  // --- CSRF & Helpers ---
+  var csrfToken = "";
+  fetch("/api/me", { credentials: "same-origin" })
+    .then(function (r) { return r.json(); })
+    .then(function (d) { if (d && d.csrf) csrfToken = d.csrf; })
+    .catch(function () {});
+
+  function postJson(url, body) {
+    var headers = { "Content-Type": "application/json" };
+    if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
+    return fetch(url, {
+      method: "POST",
+      headers: headers,
+      credentials: "same-origin",
+      body: JSON.stringify(body || {})
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (data) {
+        if (!r.ok) { var err = new Error(data.error || "Request failed (" + r.status + ")"); err.status = r.status; throw err; }
+        return data;
+      });
+    });
+  }
+
+  function appendFormattedText(parent, text) {
+    if (!text) return;
+    var parts = text.split(/(```[\s\S]*?```)/g);
+    parts.forEach(function (part) {
+      if (part.indexOf("```") === 0 && part.lastIndexOf("```") === part.length - 3) {
+        var inner = part.slice(3, -3);
+        var nl = inner.indexOf("\n");
+        var codeText = nl !== -1 ? inner.slice(nl + 1) : inner;
+        var pre = el("pre");
+        var code = el("code", null, codeText.replace(/^\n+|\n+$/g, ""));
+        pre.appendChild(code);
+        parent.appendChild(pre);
+      } else {
+        var paras = part.split(/\n{2,}/);
+        paras.forEach(function (p) {
+          var clean = p.trim();
+          if (clean) parent.appendChild(el("p", null, clean));
+        });
+      }
+    });
+  }
+
+  // --- AI Security Copilot ---
+  var chatHist = $("chat-history");
+  var chatForm = $("chat-form");
+  var chatInput = $("chat-input");
+
+  function addBotBubble(replyText, actions) {
+    if (!chatHist) return;
+    var row = el("div", "msg-row bot");
+    var bub = el("div", "msg-bubble");
+    appendFormattedText(bub, replyText);
+    if (actions && actions.length) {
+      var actBox = el("div", "pills-row");
+      actions.forEach(function (a) {
+        var pill = el("button", "pill-btn", a);
+        pill.type = "button";
+        pill.addEventListener("click", function () {
+          if (chatInput) {
+            chatInput.value = a;
+            submitChat();
+          }
+        });
+        actBox.appendChild(pill);
+      });
+      bub.appendChild(actBox);
+    }
+    row.appendChild(bub);
+    chatHist.appendChild(row);
+    chatHist.scrollTop = chatHist.scrollHeight;
+  }
+
+  function submitChat() {
+    if (!chatInput) return;
+    var msg = chatInput.value.trim();
+    if (!msg) return;
+    chatInput.value = "";
+    var uRow = el("div", "msg-row user");
+    uRow.appendChild(el("div", "msg-bubble", msg));
+    chatHist.appendChild(uRow);
+
+    var loadRow = el("div", "msg-row bot");
+    var loadBub = el("div", "msg-bubble", "Thinking…");
+    loadRow.appendChild(loadBub);
+    chatHist.appendChild(loadRow);
+    chatHist.scrollTop = chatHist.scrollHeight;
+
+    postJson("api/chat", { message: msg })
+      .then(function (d) {
+        chatHist.removeChild(loadRow);
+        addBotBubble(d.reply || "No answer available.", d.suggested_actions || []);
+      })
+      .catch(function (err) {
+        chatHist.removeChild(loadRow);
+        addBotBubble("Error contacting Copilot: " + err.message);
+      });
+  }
+
+  if (chatForm) {
+    chatForm.addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      submitChat();
+    });
+  }
+
+  var chatPills = $("chat-pills");
+  if (chatPills) {
+    chatPills.querySelectorAll("[data-ask]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        if (chatInput) {
+          chatInput.value = b.getAttribute("data-ask") || b.textContent;
+          submitChat();
+        }
+      });
+    });
+  }
+
+  if (chatHist) {
+    addBotBubble("Hi! I'm your Guard AI Security Copilot. Ask me about intercepted threats, attack vectors, or request code remediation for your web framework.",
+                 ["Why was latest IP blocked?", "How do I fix SQL injection in FastAPI?", "Attack summary"]);
+  }
+
+  // --- Edge Firewall Export ---
+  var currentFmt = "iptables";
+  var fwBox = $("fw-rules");
+  var fwCount = $("fw-count");
+  var fwCopyBtn = $("fw-copy");
+  var fwRefreshBtn = $("fw-refresh");
+
+  function loadFirewallRules(fmt) {
+    currentFmt = fmt || currentFmt;
+    var fmts = ["iptables", "ufw", "nginx", "cloudflare"];
+    fmts.forEach(function (f) {
+      var tab = $("fw-tab-" + f);
+      if (tab) tab.setAttribute("aria-pressed", String(f === currentFmt));
+    });
+    if (fwBox) fwBox.textContent = "Loading rules…";
+    fetch("api/firewall-rules?format=" + encodeURIComponent(currentFmt), { cache: "no-store" })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (fwBox) fwBox.textContent = d.rules || "# No blocked malicious IPs yet.";
+        if (fwCount) fwCount.textContent = d.count + " blocked attacker IP" + (d.count === 1 ? "" : "s") + " ready for export";
+      })
+      .catch(function () {
+        if (fwBox) fwBox.textContent = "# Failed to load firewall rules.";
+      });
+  }
+
+  ["iptables", "ufw", "nginx", "cloudflare"].forEach(function (f) {
+    var tab = $("fw-tab-" + f);
+    if (tab) {
+      tab.addEventListener("click", function () { loadFirewallRules(f); });
+    }
+  });
+
+  if (fwCopyBtn) {
+    fwCopyBtn.addEventListener("click", function () {
+      if (fwBox && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(fwBox.textContent);
+        var orig = fwCopyBtn.textContent;
+        fwCopyBtn.textContent = "Copied rules!";
+        setTimeout(function () { fwCopyBtn.textContent = orig; }, 1400);
+      }
+    });
+  }
+
+  if (fwRefreshBtn) {
+    fwRefreshBtn.addEventListener("click", function () { loadFirewallRules(currentFmt); });
+  }
+
+  // --- Alert Settings ---
+  var alertForm = $("alert-form");
+  var altWebhook = $("alt-webhook");
+  var altTgToken = $("alt-tg-token");
+  var altTgChat = $("alt-tg-chat");
+  var altScore = $("alt-score");
+  var altStatus = $("alert-status");
+  var altTestBtn = $("alt-test");
+
+  function loadAlertConfig() {
+    fetch("api/alerts", { credentials: "same-origin", cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (cfg) {
+        if (!cfg) return;
+        if (altWebhook && cfg.webhook_url !== undefined) altWebhook.value = cfg.webhook_url;
+        if (altTgToken && cfg.telegram_bot_token !== undefined) altTgToken.value = cfg.telegram_bot_token;
+        if (altTgChat && cfg.telegram_chat_id !== undefined) altTgChat.value = cfg.telegram_chat_id;
+        if (altScore && cfg.alert_min_score !== undefined) altScore.value = cfg.alert_min_score;
+      })
+      .catch(function () {});
+  }
+
+  loadAlertConfig();
+  loadFirewallRules("iptables");
+
+  if (alertForm) {
+    alertForm.addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      if (altStatus) {
+        altStatus.textContent = "Saving settings…";
+        altStatus.hidden = false;
+      }
+      var payload = {
+        webhook_url: altWebhook ? altWebhook.value : "",
+        telegram_bot_token: altTgToken ? altTgToken.value : "",
+        telegram_chat_id: altTgChat ? altTgChat.value : "",
+        alert_min_score: altScore ? parseInt(altScore.value, 10) || 70 : 70
+      };
+      postJson("api/alerts", payload)
+        .then(function () {
+          if (altStatus) {
+            altStatus.textContent = "Alert configuration saved successfully!";
+            altStatus.hidden = false;
+          }
+        })
+        .catch(function (err) {
+          if (altStatus) {
+            altStatus.textContent = "Error saving: " + err.message;
+            altStatus.hidden = false;
+          }
+        });
+    });
+  }
+
+  if (altTestBtn) {
+    altTestBtn.addEventListener("click", function () {
+      if (altStatus) {
+        altStatus.textContent = "Sending test alert…";
+        altStatus.hidden = false;
+      }
+      var payload = {
+        webhook_url: altWebhook ? altWebhook.value : "",
+        telegram_bot_token: altTgToken ? altTgToken.value : "",
+        telegram_chat_id: altTgChat ? altTgChat.value : ""
+      };
+      postJson("api/alerts/test", payload)
+        .then(function (res) {
+          if (altStatus) {
+            if (res.results && res.results.length) {
+              var s = res.results.map(function (r) {
+                return (r.channel || "channel") + ": " + (r.ok ? "sent" : (r.error || "failed"));
+              }).join("; ");
+              altStatus.textContent = "Test results — " + s;
+            } else {
+              altStatus.textContent = res.message || "Test alert completed.";
+            }
+            altStatus.hidden = false;
+          }
+        })
+        .catch(function (err) {
+          if (altStatus) {
+            altStatus.textContent = "Test failed: " + err.message;
+            altStatus.hidden = false;
+          }
+        });
+    });
+  }
 })();
 </script>
 </body>

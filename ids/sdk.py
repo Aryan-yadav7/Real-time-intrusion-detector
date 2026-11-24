@@ -3,7 +3,9 @@
     from ids.sdk import GuardMiddleware
 
     app.add_middleware(GuardMiddleware, api_key="gk_...", server="https://guard.example.com",
-                       mode="detect")          # use mode="block" to also stop attacks
+                       mode="detect",          # use mode="block" to also stop attacks
+                       exempt_prefixes=("/api/webhooks",), # skip trusted webhooks
+                       allowlist_ips=("192.168.1.100",))   # skip trusted office IPs
 
 Detection and blocking happen inside the customer's own process (fast, works even if
 the Guard platform is down). Only metadata is sent to the platform, in the background:

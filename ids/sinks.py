@@ -43,6 +43,26 @@ class LocalSink:
     def event(self, ip, method, path, findings, score, action, user_agent) -> None:
         db.log_event(self.db_path, self.site_id, ip, method, path, findings, score, action,
                      user_agent)
+        try:
+            from .dashboard import get_local_alerts
+            cfg = get_local_alerts(self.site_id)
+            if cfg.get("telegram_chat_id") or cfg.get("webhook_url"):
+                from . import alerts
+                top = findings[0]
+                ev_dict = {
+                    "ip": ip,
+                    "method": method,
+                    "path": path,
+                    "category": top.category,
+                    "rule_id": top.rule_id,
+                    "score": score,
+                    "action": action,
+                    "severity": top.severity,
+                    "evidence": top.evidence,
+                }
+                alerts.notify_event(self.site_id, self.site_id, ev_dict, cfg)
+        except Exception:
+            pass
 
 
 def _urllib_post(url: str, headers: dict, body: bytes, timeout: float):
