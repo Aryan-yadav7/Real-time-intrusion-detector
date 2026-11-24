@@ -26,7 +26,7 @@ def _post_json(url: str, payload: dict, timeout: float = 5.0) -> tuple[int, str]
     req = urllib.request.Request(
         url,
         data=body,
-        headers={"Content-Type": "application/json", "User-Agent": "Guard-IDS-Alerts/1.0"},
+        headers={"Content-Type": "application/json", "User-Agent": "Sentinel-IDS-Alerts/1.0"},
         method="POST",
     )
     try:
@@ -90,13 +90,13 @@ def send_discord(webhook_url: str, title: str, description: str, fields: list[di
     if not webhook_url or "discord.com/api/webhooks" not in webhook_url:
         return False
     payload = {
-        "content": "🛡️ **Guard Security Alert**",
+        "content": "🛡️ **Sentinel Security Alert**",
         "embeds": [{
             "title": title[:256],
             "description": description[:2048],
             "color": color,
             "fields": [{"name": f["name"][:256], "value": f["value"][:1024], "inline": f.get("inline", True)} for f in fields[:10]],
-            "footer": {"text": "Guard IDS • Real-time Threat Monitor"},
+            "footer": {"text": "Sentinel IDS • Real-time Threat Monitor"},
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         }],
     }
@@ -111,7 +111,7 @@ def send_slack_or_webhook(webhook_url: str, text: str, payload_data: dict | None
     if "hooks.slack.com" in webhook_url:
         payload = {"text": text}
     else:
-        payload = payload_data or {"text": text, "source": "guard_ids", "timestamp": time.time()}
+        payload = payload_data or {"text": text, "source": "sentinel_ids", "timestamp": time.time()}
     status, _ = _post_json(webhook_url, payload)
     return 200 <= status < 300
 
@@ -146,7 +146,7 @@ def build_alert_message(site_name: str, event: dict) -> str:
     evidence = event.get("evidence") or ""
 
     text = (
-        f"🚨 [{severity}] GUARD SECURITY ALERT: {site_name}\n"
+        f"🚨 [{severity}] SENTINEL SECURITY ALERT: {site_name}\n"
         f"Status: {action} (Score: {score}/100)\n"
         f"Attack: {category}" + (f" ({rule_id})" if rule_id else "") + "\n"
         f"Attacker IP: {ip}\n"
@@ -169,7 +169,7 @@ def dispatch_alert(message: str, config: dict, event: dict | None = None,
     tg_chat = config.get("telegram_chat_id")
     if tg_token and tg_chat:
         clean_msg = message.replace("<", "&lt;").replace(">", "&gt;")
-        formatted_tg = f"<b>🚨 GUARD SECURITY ALERT</b>\n<pre>{clean_msg}</pre>"
+        formatted_tg = f"<b>🚨 SENTINEL SECURITY ALERT</b>\n<pre>{clean_msg}</pre>"
         ok = send_telegram(tg_token, tg_chat, formatted_tg)
         results.append({"channel": "telegram", "ok": ok})
 
@@ -236,7 +236,7 @@ def send_test_notification(config: dict, site_name: str = "Demo Site") -> dict:
     tg_chat = config.get("telegram_chat_id")
     if tg_token and tg_chat:
         msg = (
-            f"✅ <b>Guard IDS Integration Test</b>\n"
+            f"✅ <b>Sentinel IDS Integration Test</b>\n"
             f"<b>Site:</b> {site_name}\n"
             f"Your Telegram security alerts are successfully connected! You will receive instant notifications here when threats are blocked."
         )
@@ -251,10 +251,10 @@ def send_test_notification(config: dict, site_name: str = "Demo Site") -> dict:
                 {"name": "Status", "value": "Connected ✅", "inline": True},
                 {"name": "Mode", "value": "Real-time Alerts", "inline": True},
             ]
-            ok = send_discord(webhook, "Guard IDS Test Notification", f"Integration test for **{site_name}**. Security alerts are active.", fields, 0x10B981)
+            ok = send_discord(webhook, "Sentinel IDS Test Notification", f"Integration test for **{site_name}**. Security alerts are active.", fields, 0x10B981)
             results["discord"] = "ok" if ok else "failed (check webhook URL)"
         else:
-            text = f"✅ Guard IDS Integration Test: Alerts connected for {site_name}."
+            text = f"✅ Sentinel IDS Integration Test: Alerts connected for {site_name}."
             ok = send_slack_or_webhook(webhook, text)
             results["webhook"] = "ok" if ok else "failed (check webhook URL)"
 

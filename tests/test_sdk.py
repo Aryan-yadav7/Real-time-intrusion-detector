@@ -9,11 +9,11 @@ from fastapi.testclient import TestClient
 
 from ids.platform_app import create_app
 from ids.rules import Finding
-from ids.sdk import GuardMiddleware
+from ids.sdk import SentinelMiddleware
 from ids.sinks import RemoteSink
 
-KEY = "gk_" + "a" * 40
-SERVER = "http://guard.test"
+KEY = "sk_" + "a" * 40
+SERVER = "http://sentinel.test"
 
 
 def finding(category="sql_injection", severity="high", score=75, evidence="' or '1'='1"):
@@ -154,7 +154,7 @@ def test_constructor_validation():
     with pytest.raises(ValueError):
         RemoteSink(KEY, "ftp://nope", start_thread=False)
     with pytest.raises(ValueError):
-        RemoteSink(KEY, "guard.example.com", start_thread=False)
+        RemoteSink(KEY, "sentinel.example.com", start_thread=False)
 
 
 def test_background_thread_delivers_and_close_flushes():
@@ -168,7 +168,7 @@ def test_background_thread_delivers_and_close_flushes():
     fill(s, events=1)
     s.close()
     assert s.sent_events == 1
-    assert not any(t.name == "guard-sender" and t.is_alive() for t in threading.enumerate())
+    assert not any(t.name == "sentinel-sender" and t.is_alive() for t in threading.enumerate())
 
 
 # ============================================== end to end with the platform
@@ -190,7 +190,7 @@ def customer_site(sink_obj, mode="detect"):
     def login():
         return JSONResponse({"ok": False}, status_code=401)
 
-    app.add_middleware(GuardMiddleware, api_key=KEY, mode=mode, sink=sink_obj)
+    app.add_middleware(SentinelMiddleware, api_key=KEY, mode=mode, sink=sink_obj)
     return TestClient(app)
 
 

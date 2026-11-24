@@ -1,34 +1,52 @@
-"""A pretend CUSTOMER website protected with the Guard SDK (what a user of your platform does).
+"""A pretend CUSTOMER website protected with the Sentinel SDK (what a user of your platform does).
 
-    $env:GUARD_API_KEY = "gk_..."        # the key shown once when you add a website
-    $env:GUARD_SERVER  = "http://127.0.0.1:9000"   # optional, this is the default
-    $env:GUARD_MODE    = "detect"        # or "block"
+    $env:SENTINEL_API_KEY = "sk_..."     # the key shown once when you add a website
+    $env:SENTINEL_SERVER  = "http://127.0.0.1:9000"   # optional, this is the default
+    $env:SENTINEL_MODE    = "detect"     # or "block"
     python -m uvicorn ids.customer_demo:app --port 8000
 
 Then run:  python scripts\\attack.py --everything   and watch the site's dashboard on the platform.
 The endpoints are harmless on purpose (nothing touches a database, the disk or a shell).
 """
 import os
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
 
+def _load_env_files() -> None:
+    """Load .env / ids/.env if present so SENTINEL_API_KEY works from .env files."""
+    for candidate in (Path(__file__).resolve().parent / ".env", Path.cwd() / ".env"):
+        if not candidate.is_file():
+            continue
+        for raw in candidate.read_text(encoding="utf-8").splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, _, v = line.partition("=")
+            k = k.strip()
+            v = v.strip().strip('"').strip("'")
+            if k and k not in os.environ:
+                os.environ[k] = v
 
-API_KEY = os.getenv("GUARD_API_KEY")
+
+_load_env_files()
+
+API_KEY = os.getenv("SENTINEL_API_KEY", os.getenv("GUARD_API_KEY"))
 if not API_KEY:
-    raise SystemExit("Set GUARD_API_KEY first (copy it from the platform when you add a website).")
+    raise SystemExit("Set SENTINEL_API_KEY first (copy it from the platform when you add a website).")
 
-SERVER = os.getenv("GUARD_SERVER", "http://127.0.0.1:9000")
-MODE = os.getenv("GUARD_MODE", "detect")
+SERVER = os.getenv("SENTINEL_SERVER", os.getenv("GUARD_SERVER", "http://127.0.0.1:9000"))
+MODE = os.getenv("SENTINEL_MODE", os.getenv("GUARD_MODE", "detect"))
 
 app = FastAPI(title="Customer demo site")
 
-from .sdk import GuardMiddleware
+from .sdk import SentinelMiddleware
 
 app.add_middleware(
-    GuardMiddleware,
+    SentinelMiddleware,
     api_key=API_KEY,
     server=SERVER,
     mode=MODE,
@@ -42,7 +60,7 @@ class Login(BaseModel):
 
 @app.get("/", response_class=HTMLResponse)
 def home():
-    return "<h1>Customer demo shop</h1><p>Protected by the Guard SDK.</p>"
+    return "<h1>Customer demo shop</h1><p>Protected by the Sentinel SDK.</p>"
 
 
 @app.get("/search")

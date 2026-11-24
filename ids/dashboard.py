@@ -41,6 +41,10 @@ def snapshot(db_path: str, site_id: str, mode: str = "detect", now: float | None
     for category, n in db.category_counts(db_path, site_id, now - DAY):
         label = category_info(category)["label"]
         by_label[label] = by_label.get(label, 0) + n
+    blocked_rows = db.get_blocked_ips(db_path, site_id)
+    for r in blocked_rows:
+        if "reason" not in r:
+            r["reason"] = category_info(r.get("category") or "")["tech"] + " detected"
     return {
         "generated_at": now,
         "mode": mode,
@@ -51,6 +55,7 @@ def snapshot(db_path: str, site_id: str, mode: str = "detect", now: float | None
         "top_sources": sources,
         "timeline": db.timeline(db_path, site_id, 60, now),
         "events": [describe_event(e) for e in db.recent_events(db_path, site_id, limit=40)],
+        "blocked_ips": blocked_rows,
     }
 
 
@@ -66,7 +71,11 @@ async def sse_messages(db_path: str, site_id: str, mode: str = "detect",
     last_key, last_sent, sent = None, 0.0, 0
     while max_messages is None or sent < max_messages:
         key = await asyncio.to_thread(
-            lambda: (db.max_event_id(db_path, site_id), db.summary(db_path, site_id)["requests"]))
+            lambda: (
+                db.max_event_id(db_path, site_id),
+                db.summary(db_path, site_id)["requests"],
+                tuple((b["ip"], b["ts"]) for b in db.get_blocked_ips(db_path, site_id)),
+            ))
         now = time.monotonic()
         if key != last_key or now - last_sent >= heartbeat:
             snap = await asyncio.to_thread(snapshot, db_path, site_id, mode)
@@ -134,7 +143,7 @@ def create_dashboard_router(db_path: str, site_id: str = "demo", mode: str = "de
             return Response(
                 content=json.dumps([describe_event(r) for r in rows], indent=2),
                 media_type="application/json",
-                headers={"Content-Disposition": f'attachment; filename="guard_events_{site_id}.json"',
+                headers={"Content-Disposition": f'attachment; filename="sentinel_events_{site_id}.json"',
                          "Cache-Control": "no-store"}
             )
         output = io.StringIO()
@@ -147,7 +156,7 @@ def create_dashboard_router(db_path: str, site_id: str = "demo", mode: str = "de
         return Response(
             content=output.getvalue(),
             media_type="text/csv",
-            headers={"Content-Disposition": f'attachment; filename="guard_events_{site_id}.csv"',
+            headers={"Content-Disposition": f'attachment; filename="sentinel_events_{site_id}.csv"',
                      "Cache-Control": "no-store"}
         )
 
@@ -163,19 +172,56 @@ def create_dashboard_router(db_path: str, site_id: str = "demo", mode: str = "de
 
     @router.get("/api/firewall-rules")
     def api_firewall_rules(format: str = "iptables"):
-        rows = db.query_events(db_path, site_id, limit=200, action="blocked")
-        ips = sorted({r["ip"] for r in rows if r.get("ip") and r["ip"] != "unknown"})
+        blocked = db.get_blocked_ips(db_path, site_id)
+        ips = sorted({r["ip"] for r in blocked if r.get("ip") and r["ip"] != "unknown"})
         fmt_clean = format.lower().strip()
         if fmt_clean == "ufw":
-            lines = [f"ufw deny from {ip} to any comment 'Guard IDS blocked'" for ip in ips]
+            lines = [f"ufw deny from {ip} to any comment 'Sentinel IDS blocked'" for ip in ips]
         elif fmt_clean == "nginx":
             lines = [f"deny {ip};" for ip in ips]
         elif fmt_clean == "cloudflare":
-            lines = [json.dumps({"mode": "block", "configuration": {"target": "ip", "value": ip}, "notes": "Guard IDS"}) for ip in ips]
+            lines = [json.dumps({"mode": "block", "configuration": {"target": "ip", "value": ip}, "notes": "Sentinel IDS"}) for ip in ips]
         else:
             lines = [f"iptables -A INPUT -s {ip} -j DROP" for ip in ips]
         return JSONResponse({"format": fmt_clean, "count": len(ips), "ips": ips, "rules": "\n".join(lines)},
                             headers={"Cache-Control": "no-store"})
+
+    @router.get("/api/blocked-ips")
+    def api_blocked_ips():
+        rows = db.get_blocked_ips(db_path, site_id)
+        for r in rows:
+            if "reason" not in r:
+                info = category_info(r.get("category") or "")
+                r["reason"] = info["tech"] + " detected"
+        return JSONResponse({"blocked_ips": rows}, headers={"Cache-Control": "no-store"})
+
+    @router.post("/api/blocked-ips/block")
+    async def api_block_ip(request: Request):
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        ip = str(body.get("ip", "")).strip()
+        if not ip:
+            return JSONResponse({"error": "IP address is required."}, status_code=400)
+        reason = str(body.get("reason", "")).strip() or "Manually blocked by administrator"
+        severity = str(body.get("severity", "high")).strip().lower()
+        if severity not in ("critical", "high", "medium", "low"):
+            severity = "high"
+        db.block_ip(db_path, site_id, ip, reason=reason, severity=severity)
+        return JSONResponse({"ok": True, "ip": ip}, headers={"Cache-Control": "no-store"})
+
+    @router.post("/api/blocked-ips/unblock")
+    async def api_unblock_ip(request: Request):
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        ip = str(body.get("ip", "")).strip()
+        if not ip:
+            return JSONResponse({"error": "IP address is required."}, status_code=400)
+        db.unblock_ip(db_path, site_id, ip)
+        return JSONResponse({"ok": True, "ip": ip}, headers={"Cache-Control": "no-store"})
 
     @router.get("/api/alerts")
     def api_get_alerts():

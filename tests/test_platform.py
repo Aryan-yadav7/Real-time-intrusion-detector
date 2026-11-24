@@ -176,7 +176,7 @@ def test_site_creation_shows_the_key_once_and_stores_only_a_hash(env):
     app, path = env
     a = Account(app, "a@example.com")
     site, key = a.add_site()
-    assert key.startswith("gk_") and site["key_prefix"] == key[:11]
+    assert key.startswith("sk_") and site["key_prefix"] == key[:11]
     listing = a.client.get("/api/sites")
     assert key not in listing.text and "api_key" not in listing.text and "hash" not in listing.text
     conn = sqlite3.connect(path)
@@ -322,7 +322,7 @@ def test_ingestion_requires_a_valid_key(env):
 def test_guessing_keys_is_rate_limited(env):
     app, _ = env
     c = TestClient(app)
-    codes = [c.get("/api/v1/ping", headers={"Authorization": f"Bearer gk_wrong{i}"}).status_code
+    codes = [c.get("/api/v1/ping", headers={"Authorization": f"Bearer sk_wrong{i}"}).status_code
              for i in range(35)]
     assert codes[:30] == [401] * 30 and set(codes[30:]) == {429}
 

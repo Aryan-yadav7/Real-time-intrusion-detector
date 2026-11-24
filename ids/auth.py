@@ -16,7 +16,7 @@ import secrets
 
 SCRYPT_N, SCRYPT_R, SCRYPT_P = 2 ** 14, 8, 1
 MIN_PASSWORD, MAX_PASSWORD = 10, 128
-API_KEY_PREFIX = "gk_"
+API_KEY_PREFIX = "sk_"
 
 _EMAIL = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,255}\.[^@\s]{2,}$")
 _dummy: str | None = None

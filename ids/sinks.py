@@ -1,7 +1,7 @@
 """Where the middleware sends what it sees.
 
 LocalSink   writes to a SQLite file next to the app (Day 1/2 behavior).
-RemoteSink  ships batches to the Guard platform over HTTPS using an API key (Day 3).
+RemoteSink  ships batches to the Sentinel platform over HTTPS using an API key (Day 3).
 
 RemoteSink design goals:
   * Never slow down or break the protected website: the request path only does
@@ -80,11 +80,11 @@ class RemoteSink:
                  flush_interval: float = 2.0, batch_size: int = MAX_BATCH,
                  max_queue: int = 10_000, timeout: float = 5.0,
                  post=None, start_thread: bool = True):
-        if not api_key or not api_key.startswith("gk_"):
-            raise ValueError("api_key looks wrong: it should start with 'gk_'")
+        if not api_key or not api_key.startswith(("sk_", "gk_")):
+            raise ValueError("api_key looks wrong: it should start with 'sk_'")
         parsed = urlparse(server)
         if parsed.scheme not in ("http", "https") or not parsed.netloc:
-            raise ValueError("server must be a full URL such as https://guard.example.com")
+            raise ValueError("server must be a full URL such as https://sentinel.example.com")
         self.url = server.rstrip("/") + "/api/v1/events"
         self.api_key = api_key
         self.mode = mode
@@ -104,7 +104,7 @@ class RemoteSink:
         self.sent_events = 0
         self._thread = None
         if start_thread:
-            self._thread = threading.Thread(target=self._run, name="guard-sender", daemon=True)
+            self._thread = threading.Thread(target=self._run, name="sentinel-sender", daemon=True)
             self._thread.start()
             atexit.register(self.close)
 
@@ -149,11 +149,11 @@ class RemoteSink:
         """Returns 'ok', 'drop' (do not retry) or 'retry'."""
         body = json.dumps(payload, separators=(",", ":")).encode()
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json",
-                   "User-Agent": f"guard-sdk/{SDK_VERSION}"}
+                   "User-Agent": f"sentinel-sdk/{SDK_VERSION}"}
         try:
             status, response_headers = self._post(self.url, headers, body, self.timeout)
         except Exception as exc:  # network down, DNS, timeout...
-            log.warning("Guard server unreachable (%s); will retry", exc)
+            log.warning("Sentinel server unreachable (%s); will retry", exc)
             return "retry"
         if 200 <= status < 300:
             self.sent_requests += len(payload["requests"])
@@ -162,7 +162,7 @@ class RemoteSink:
             return "ok"
         if status in (401, 403):
             self.auth_failed = True
-            log.error("Guard rejected the API key (HTTP %s). Sending is disabled; detection "
+            log.error("Sentinel rejected the API key (HTTP %s). Sending is disabled; detection "
                       "still runs locally. Check the key or rotate it.", status)
             return "drop"
         if status == 429:
@@ -172,7 +172,7 @@ class RemoteSink:
                 self._retry_after = 5.0
             return "retry"
         if 400 <= status < 500:
-            log.error("Guard refused a batch (HTTP %s); dropping it", status)
+            log.error("Sentinel refused a batch (HTTP %s); dropping it", status)
             return "drop"
         return "retry"
 
@@ -199,7 +199,7 @@ class RemoteSink:
             try:
                 ok = self.flush()
             except Exception:
-                log.exception("Guard sender crashed on a batch; continuing")
+                log.exception("Sentinel sender crashed on a batch; continuing")
                 ok = False
             if ok:
                 self._failures, delay = 0, self.flush_interval
@@ -215,4 +215,4 @@ class RemoteSink:
         try:
             self.flush()
         except Exception:
-            log.exception("Guard final flush failed")
+            log.exception("Sentinel final flush failed")

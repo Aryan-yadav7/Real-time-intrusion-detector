@@ -38,7 +38,7 @@ def test_api_keys_are_random_and_only_hashes_are_derived():
     k1, prefix, h1 = auth.new_api_key()
     k2, _, h2 = auth.new_api_key()
     assert k1 != k2 and h1 != h2
-    assert k1.startswith("gk_") and k1.startswith(prefix) and len(k1) > 40
+    assert k1.startswith("sk_") and k1.startswith(prefix) and len(k1) > 40
     assert h1 == auth.sha256_hex(k1) and k1 not in h1
 
 

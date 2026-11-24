@@ -1,4 +1,4 @@
-"""Guard AI Security Copilot: Incident investigation, threat explanations, and code remediation.
+"""Sentinel AI Security Copilot: Incident investigation, threat explanations, and code remediation.
 
 Features:
   * Analyzes recent security events for a specific website.
@@ -127,7 +127,7 @@ subprocess.run(["nslookup", hostname], shell=False)
         "title": "Mitigating Brute Force & Credential Stuffing",
         "description": "Attackers cycle through common passwords or stolen credentials on login endpoints.",
         "fastapi": """# Recommendations:
-# 1. Enable GuardMiddleware in 'block' mode: repeat failed logins get HTTP 429 automatically.
+# 1. Enable SentinelMiddleware in 'block' mode: repeat failed logins get HTTP 429 automatically.
 # 2. Add an account-level delay or progressive lock:
 #    After 5 failed attempts, require a 5-minute wait.
 # 3. Implement Multi-Factor Authentication (TOTP / WebAuthn).
@@ -196,7 +196,7 @@ def ask_copilot(question: str, site_id: str, db_path: str | None = None) -> dict
             f"Recent events: " + ", ".join(f"{e['technical']['category']} from {e['ip']}" for e in events[:5])
         )
         system_prompt = (
-            "You are Guard AI, an expert cybersecurity assistant and Web Application Firewall copilot. "
+            "You are Sentinel AI, an expert cybersecurity assistant and Web Application Firewall copilot. "
             "Explain attacks clearly, provide safe remediation code (FastAPI/Python), and be concise.\n\n"
             f"Current Site Context:\n{summary_context}\n\nUser Question: {q}"
         )
@@ -266,7 +266,7 @@ def ask_copilot(question: str, site_id: str, db_path: str | None = None) -> dict
                 f"### {guide['title']}\n\n"
                 f"{guide['description']}\n\n"
                 f"```python\n{code_block.strip()}\n```\n\n"
-                f"💡 **Guard Middleware Tip:** Keep Guard in `mode='block'` to automatically reject these attacks at your site's entry point."
+                f"💡 **Sentinel Middleware Tip:** Keep Sentinel in `mode='block'` to automatically reject these attacks at your site's entry point."
             )
             sugs = [
                 "How do I prevent Cross-Site Scripting (XSS)?",
@@ -335,7 +335,7 @@ def ask_copilot(question: str, site_id: str, db_path: str | None = None) -> dict
 
     # Case E: Default fallback with helpful context
     reply = (
-        f"I am your **Guard AI Security Copilot**. I analyze real-time threats intercepted on this website.\n\n"
+        f"I am your **Sentinel AI Security Copilot**. I analyze real-time threats intercepted on this website.\n\n"
         f"Currently, this site has recorded **{totals['threats']} threats** ({totals['blocked']} blocked) across **{totals['requests']} total requests**.\n\n"
         f"You can ask me questions such as:\n"
         f"• *\"Why was the latest IP blocked?\"*\n"

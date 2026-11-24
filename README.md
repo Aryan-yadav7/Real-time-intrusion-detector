@@ -15,12 +15,12 @@ The platform supports multiple users, allowing each user to register their own w
 - Behaviour-based detection of brute force, flooding and suspicious scanning.
 - Threat scoring between 0 and 100.
 - Detect-only and blocking modes.
-- Live security dashboard with real-time updates via Server-Sent Events (SSE).
+- Live security dashboard with real-time updates via Server-Sent Events (SSE), including **Overview** (60-minute traffic timeline, recent alerts, attack types), **Alerts** (searchable/filterable table with slide-out Alert Details drawer), **Blocked IPs** (severity breakdown and one-click block/unblock), **Logs**, **Settings**, and **AI Copilot**.
 - Multi-channel instant security alerts (Telegram Bot, Discord rich embeds, Slack, generic JSON webhooks) with flood cooldowns.
-- Guard AI Security Copilot: instant attack explanations, incident investigations ("Why was this IP blocked?"), and framework-specific code remediation (FastAPI, Flask, Django).
+- Sentinel AI Security Copilot: instant attack explanations, incident investigations ("Why was this IP blocked?"), and framework-specific code remediation (FastAPI, Flask, Django).
 - Firewall rule generation (`iptables`, `ufw`, `nginx`, `cloudflare`) for blocked attacker IPs.
 - Event log export to CSV and JSON formats for compliance and external security audits.
-- Connection verification ("Test probe") to confirm telemetry flow between the customer site and Guard platform.
+- Connection verification ("Test probe") to confirm telemetry flow between the customer site and Sentinel platform.
 - IP allowlisting and reverse proxy support (`X-Forwarded-For`).
 - User registration and authentication with salted scrypt hashing.
 - Multiple website registration under different user accounts.
@@ -168,14 +168,14 @@ The system consists of two main parts:
 | `ids/auth.py` | Handles password hashing, authentication tokens, sessions and API keys. |
 | `ids/ratelimit.py` | Implements rate limiting to protect the platform from excessive requests and abuse. |
 | `ids/platform_app.py` | Main application for the central Guard platform, including registration, website management and event ingestion. |
-| `ids/static/app.html` | Frontend for account registration, login and website management. |
+| `ids/static/app.html` | Frontend for account registration, login, onboarding, and website management. |
 
 ### D. Dashboard, Copilot and Alerts
 
 | File | Description |
 |---|---|
-| `ids/dashboard.py` | Provides dashboard APIs, snapshots, query filtering, CSV/JSON export, firewall rules export and Server-Sent Events (SSE). |
-| `ids/static/dashboard.html` | Frontend for displaying security status, live attack feed, Copilot AI drawer, and alert configuration. |
+| `ids/dashboard.py` | Provides dashboard APIs, snapshots, query filtering, blocked IP management (`block`/`unblock`), CSV/JSON export, firewall rules export, and Server-Sent Events (SSE). |
+| `ids/static/dashboard.html` | Top-navigation Sentinel security monitoring UI (`Overview`, `Alerts` with details drawer, `Blocked IPs`, `Logs`, `Settings`, `AI Copilot`). |
 | `ids/copilot.py` | Guard AI Security Copilot: provides threat investigations, attack mechanism explanations, and framework-specific code remediation (FastAPI, Flask, Django). Works 100% offline via expert engine or optionally with Gemini LLM. |
 | `ids/alerts.py` | Multi-channel notification engine for Telegram, Discord, Slack, and generic webhooks with flood cooldowns and instant test verification. |
 | `ids/sdk.py` | Provides GuardMiddleware for integrating the IDS into customer Python/ASGI applications. |
@@ -275,22 +275,24 @@ There are two main database components:
 
 ### 5.6 Dashboard
 
-The project provides two dashboard interfaces.
+The project provides two clean, top-navigation web interfaces (light theme by default, with a dark theme toggle):
 
-**IDS Dashboard**
-
-- Displays detected attacks.
-- Shows the current security status.
-- Displays recent security events.
-- Updates automatically using Server-Sent Events (SSE).
-
-**Guard Platform Dashboard**
+**Sentinel Platform Portal (`ids/static/app.html`)**
 
 - Allows users to register and log in.
 - Allows users to add and manage websites.
-- Generates unique API keys for websites.
-- Displays website-specific security events.
-- Provides separate dashboards for different website owners.
+- Generates unique `sk_...` API keys for websites (shown once on creation/rotation).
+- Provides onboarding instructions, SDK snippets, and one-click connection probes.
+
+**Sentinel Site Security Dashboard (`ids/static/dashboard.html`)**
+
+- **Overview:** Displays the current security status (`All clear.`, `Suspicious activity.`, or `Under attack.`), a 60-minute vertical tick timeline (`Requests (last 60 minutes)`), a `Recent alerts` table, and an `Attack types` horizontal bar breakdown.
+- **Alerts:** Searchable, filterable, paginated alerts table with a slide-out **Alert details** drawer showing the request payload, matched rule, action taken, risk score, and `Block IP` / `Unblock IP` controls.
+- **Blocked IPs:** Summary counts by severity (`Blocked IPs`, `High`, `Medium`, `Low`), blocked IP table with one-click `Unblock`, and **Edge Firewall Export** (`iptables`, `UFW`, `Nginx Deny`, `Cloudflare`).
+- **Logs:** 24-hour traffic summary, top threat sources, detailed event logs, and CSV/JSON export.
+- **Settings:** Webhook and Telegram alert configuration, theme toggle, and status guide.
+- **AI Copilot:** Interactive security assistant for incident investigations and framework remediation.
+- Updates automatically in real time using Server-Sent Events (SSE).
 
 ### 5.7 SDK and Event Sinks
 
@@ -512,13 +514,13 @@ Create an account, log in, click **Add Website** and copy the generated API key.
 
 **Terminal 2: Start the Customer Website**
 
-Set the API key generated by the platform:
+Set the API key generated by the platform (either in `ids/.env` as `SENTINEL_API_KEY=sk_...` or in PowerShell):
 
 ```powershell
-$env:GUARD_API_KEY = "gk_...paste-your-key..."
+$env:SENTINEL_API_KEY = "sk_...paste-your-key..."
 ```
 
-Start the customer demo application:
+Start the customer demo application (automatically loads `ids/.env` if present):
 
 ```powershell
 python -m uvicorn ids.customer_demo:app --port 8000
@@ -551,22 +553,22 @@ The system provides environment variables and configuration options to control i
 | Setting | Description |
 |---|---|
 | `IDS_MODE` | Controls the original IDS detection or blocking mode (`detect` or `block`). |
-| `GUARD_DB` | Sets the Guard platform database file. Default: `guard.db`. |
-| `GUARD_API_KEY` | Stores the customer's website API key (`gk_...`). |
-| `GUARD_MODE` | Controls the customer SDK detection or blocking mode (`detect` or `block`). |
-| `GUARD_SERVER` | Sets the address of the central Guard platform. Default: `http://127.0.0.1:9000`. |
-| `GUARD_COOKIE_SECURE` | Enables secure session cookies when using HTTPS (`1` or `0`). |
-| `GEMINI_API_KEY` | (Optional) Enables Google Gemini 1.5 Flash cloud LLM inside Guard AI Copilot. |
+| `SENTINEL_DB` | Sets the Sentinel platform database file. Default: `sentinel.db`. |
+| `SENTINEL_API_KEY` | Stores the customer's website API key (`sk_...`). Can be set in `ids/.env` or the environment. |
+| `SENTINEL_MODE` | Controls the customer SDK detection or blocking mode (`detect` or `block`). |
+| `SENTINEL_SERVER` | Sets the address of the central Sentinel platform. Default: `http://127.0.0.1:9000`. |
+| `SENTINEL_COOKIE_SECURE` | Enables secure session cookies when using HTTPS (`1` or `0`). |
+| `GEMINI_API_KEY` | (Optional) Enables Google Gemini cloud LLM inside Sentinel AI Copilot. |
 | `COPILOT_API_KEY` | (Optional) Alias for AI Copilot LLM key. |
 
 ### SDK & Middleware Initialization Parameters
 
-When mounting `GuardMiddleware` in an ASGI application:
+When mounting `SentinelMiddleware` in an ASGI application:
 
 ```python
 app.add_middleware(
-    GuardMiddleware,
-    api_key=os.getenv("GUARD_API_KEY"),
+    SentinelMiddleware,
+    api_key=os.getenv("SENTINEL_API_KEY"),
     server="http://127.0.0.1:9000",
     mode="block",                         # "detect" or "block"
     block_threshold=70,                   # minimum score (0-100) to block

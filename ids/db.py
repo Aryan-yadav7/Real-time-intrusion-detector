@@ -44,6 +44,16 @@ CREATE TABLE IF NOT EXISTS events (
 );
 CREATE INDEX IF NOT EXISTS idx_events_site_ts ON events(site_id, ts);
 CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts);
+
+CREATE TABLE IF NOT EXISTS ip_overrides (
+    site_id   TEXT NOT NULL,
+    ip        TEXT NOT NULL,
+    status    TEXT NOT NULL, -- 'blocked' or 'unblocked'
+    reason    TEXT,
+    severity  TEXT DEFAULT 'high',
+    ts        REAL NOT NULL,
+    PRIMARY KEY (site_id, ip)
+);
 """
 
 
@@ -248,3 +258,82 @@ def max_event_id(db_path, site_id=None) -> int:
         return conn.execute(
             "SELECT COALESCE(MAX(id), 0) FROM events WHERE (? IS NULL OR site_id = ?)",
             (site_id, site_id)).fetchone()[0]
+
+
+def get_blocked_ips(db_path: str, site_id: str) -> list[dict]:
+    """Return currently blocked IPs with reason, severity, and timestamp."""
+    with closing(connect(db_path)) as conn:
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS ip_overrides ("
+            "site_id TEXT NOT NULL, ip TEXT NOT NULL, status TEXT NOT NULL, "
+            "reason TEXT, severity TEXT DEFAULT 'high', ts REAL NOT NULL, "
+            "PRIMARY KEY (site_id, ip))"
+        )
+        rows = conn.execute(
+            "SELECT ip, category, severity, ts FROM events "
+            "WHERE site_id = ? AND action = 'blocked' AND ip IS NOT NULL AND ip != 'unknown' "
+            "ORDER BY ts DESC, id DESC",
+            (site_id,),
+        ).fetchall()
+        overrides = {
+            r["ip"]: dict(r)
+            for r in conn.execute(
+                "SELECT ip, status, reason, severity, ts FROM ip_overrides WHERE site_id = ?",
+                (site_id,),
+            ).fetchall()
+        }
+    per_ip: dict[str, dict] = {}
+    for r in rows:
+        ip = r["ip"]
+        if ip not in per_ip:
+            per_ip[ip] = {
+                "ip": ip,
+                "category": r["category"] or "other",
+                "severity": r["severity"] or "medium",
+                "ts": r["ts"],
+            }
+    for ip, ov in overrides.items():
+        if ov["status"] == "unblocked":
+            if ip in per_ip and per_ip[ip]["ts"] <= ov["ts"]:
+                del per_ip[ip]
+        elif ov["status"] == "blocked":
+            if ip not in per_ip or ov["ts"] >= per_ip[ip]["ts"]:
+                per_ip[ip] = {
+                    "ip": ip,
+                    "category": "manual",
+                    "reason": ov["reason"] or "Manually blocked by administrator",
+                    "severity": ov["severity"] or "high",
+                    "ts": ov["ts"],
+                }
+    return sorted(per_ip.values(), key=lambda x: -x["ts"])
+
+
+def block_ip(db_path: str, site_id: str, ip: str, reason: str = "Manually blocked by administrator",
+             severity: str = "high") -> None:
+    with closing(connect(db_path)) as conn, conn:
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS ip_overrides ("
+            "site_id TEXT NOT NULL, ip TEXT NOT NULL, status TEXT NOT NULL, "
+            "reason TEXT, severity TEXT DEFAULT 'high', ts REAL NOT NULL, "
+            "PRIMARY KEY (site_id, ip))"
+        )
+        conn.execute(
+            "INSERT OR REPLACE INTO ip_overrides (site_id, ip, status, reason, severity, ts) "
+            "VALUES (?, ?, 'blocked', ?, ?, ?)",
+            (site_id, ip.strip(), reason, severity, time.time()),
+        )
+
+
+def unblock_ip(db_path: str, site_id: str, ip: str) -> None:
+    with closing(connect(db_path)) as conn, conn:
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS ip_overrides ("
+            "site_id TEXT NOT NULL, ip TEXT NOT NULL, status TEXT NOT NULL, "
+            "reason TEXT, severity TEXT DEFAULT 'high', ts REAL NOT NULL, "
+            "PRIMARY KEY (site_id, ip))"
+        )
+        conn.execute(
+            "INSERT OR REPLACE INTO ip_overrides (site_id, ip, status, reason, severity, ts) "
+            "VALUES (?, ?, 'unblocked', 'Manually unblocked', 'low', ?)",
+            (site_id, ip.strip(), time.time()),
+        )

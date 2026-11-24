@@ -49,7 +49,7 @@ class IDSMiddleware:
         self.exempt_prefixes = tuple(p.rstrip("/") for p in exempt_prefixes)
         self.allowlist_ips = set(allowlist_ips)
         self.tracker = tracker or (BehaviorTracker(behavior_config) if behavior else None)
-        # Where results go: a local SQLite file (default) or, with the SDK, the Guard platform.
+        # Where results go: a local SQLite file (default) or, with the SDK, the Sentinel platform.
         self.sink = sink or LocalSink(db_path, site_id)
 
     # ------------------------------------------------------------------

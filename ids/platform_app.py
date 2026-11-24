@@ -1,4 +1,4 @@
-"""The Guard platform: accounts, websites, API keys, ingestion API, per-site dashboards.
+"""The Sentinel platform: accounts, websites, API keys, ingestion API, per-site dashboards.
 
 Run (Windows PowerShell):
     python -m uvicorn ids.platform_app:create_app --factory --port 9000
@@ -33,14 +33,14 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from . import alerts, auth, copilot, db
 from . import platform_db as pdb
 from .dashboard import snapshot, sse_messages
-from .messages import describe_event
+from .messages import category_info, describe_event
 from .ratelimit import RateLimiter
 
 STATIC = Path(__file__).parent / "static"
 _APP_PAGE = (STATIC / "app.html").read_text(encoding="utf-8")
 _DASH_PAGE = (STATIC / "dashboard.html").read_text(encoding="utf-8")
 
-COOKIE = "guard_session"
+COOKIE = "sentinel_session"
 SESSION_TTL = 7 * 24 * 3600
 MAX_SITES_PER_USER = 10
 MAX_STREAMS_PER_USER = 5
@@ -169,13 +169,13 @@ async def guarded_stream(db_path, site_id, mode, alive, recheck_every: float = 3
 # -------------------------------------------------------------------- app
 def create_app(db_path: str | None = None, cookie_secure: bool | None = None,
                ingest_limit: int = 120, login_limit: int = 5) -> FastAPI:
-    db_path = db_path or os.getenv("GUARD_DB", "guard.db")
+    db_path = db_path or os.getenv("SENTINEL_DB", os.getenv("GUARD_DB", "sentinel.db"))
     if cookie_secure is None:
-        cookie_secure = os.getenv("GUARD_COOKIE_SECURE") == "1"
+        cookie_secure = os.getenv("SENTINEL_COOKIE_SECURE", os.getenv("GUARD_COOKIE_SECURE")) == "1"
     pdb.init(db_path)
     pdb.purge_old(db_path, RETENTION_DAYS)
 
-    app = FastAPI(title="Guard platform", docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(title="Sentinel IDS platform", docs_url=None, redoc_url=None, openapi_url=None)
     login_ip = RateLimiter(10, 60)
     login_email = RateLimiter(login_limit, 60)
     signup_ip = RateLimiter(5, 3600)
@@ -378,7 +378,7 @@ def create_app(db_path: str | None = None, cookie_secure: bool | None = None,
             return Response(
                 content=_json_mod.dumps([describe_event(r) for r in rows], indent=2),
                 media_type="application/json",
-                headers={"Content-Disposition": f'attachment; filename="guard_events_{site_id}.json"', **NO_STORE}
+                headers={"Content-Disposition": f'attachment; filename="sentinel_events_{site_id}.json"', **NO_STORE}
             )
         output = io.StringIO()
         writer = csv.writer(output)
@@ -390,7 +390,7 @@ def create_app(db_path: str | None = None, cookie_secure: bool | None = None,
         return Response(
             content=output.getvalue(),
             media_type="text/csv",
-            headers={"Content-Disposition": f'attachment; filename="guard_events_{site_id}.csv"', **NO_STORE}
+            headers={"Content-Disposition": f'attachment; filename="sentinel_events_{site_id}.csv"', **NO_STORE}
         )
 
     @app.get("/app/sites/{site_id}/api/alerts")
@@ -447,18 +447,63 @@ def create_app(db_path: str | None = None, cookie_secure: bool | None = None,
         import json as _json_mod
         user = need_user(request)
         site = owned_site(user, site_id)
-        rows = db.query_events(db_path, site["id"], limit=200, action="blocked")
-        ips = sorted({r["ip"] for r in rows if r.get("ip") and r["ip"] != "unknown"})
+        blocked = db.get_blocked_ips(db_path, site["id"])
+        ips = sorted({r["ip"] for r in blocked if r.get("ip") and r["ip"] != "unknown"})
         fmt_clean = format.lower().strip()
         if fmt_clean == "ufw":
-            lines = [f"ufw deny from {ip} to any comment 'Guard IDS blocked'" for ip in ips]
+            lines = [f"ufw deny from {ip} to any comment 'Sentinel IDS blocked'" for ip in ips]
         elif fmt_clean == "nginx":
             lines = [f"deny {ip};" for ip in ips]
         elif fmt_clean == "cloudflare":
-            lines = [_json_mod.dumps({"mode": "block", "configuration": {"target": "ip", "value": ip}, "notes": "Guard IDS"}) for ip in ips]
+            lines = [_json_mod.dumps({"mode": "block", "configuration": {"target": "ip", "value": ip}, "notes": "Sentinel IDS"}) for ip in ips]
         else:
             lines = [f"iptables -A INPUT -s {ip} -j DROP" for ip in ips]
         return _json({"format": fmt_clean, "count": len(ips), "ips": ips, "rules": "\n".join(lines)})
+
+    @app.get("/app/sites/{site_id}/api/blocked-ips")
+    def site_blocked_ips(site_id: str, request: Request):
+        user = need_user(request)
+        site = owned_site(user, site_id)
+        rows = db.get_blocked_ips(db_path, site["id"])
+        for r in rows:
+            if "reason" not in r:
+                info = category_info(r.get("category") or "")
+                r["reason"] = info["tech"] + " detected"
+        return _json({"blocked_ips": rows})
+
+    @app.post("/app/sites/{site_id}/api/blocked-ips/block")
+    async def site_block_ip(site_id: str, request: Request):
+        user = need_user(request)
+        need_csrf(request, user)
+        site = owned_site(user, site_id)
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        ip = _clean(str(body.get("ip", "")).strip())
+        if not ip:
+            raise ApiError(400, "IP address is required.")
+        reason = _clean(str(body.get("reason", "")).strip()) or "Manually blocked by administrator"
+        severity = str(body.get("severity", "high")).strip().lower()
+        if severity not in ("critical", "high", "medium", "low"):
+            severity = "high"
+        db.block_ip(db_path, site["id"], ip, reason=reason, severity=severity)
+        return _json({"ok": True, "ip": ip})
+
+    @app.post("/app/sites/{site_id}/api/blocked-ips/unblock")
+    async def site_unblock_ip(site_id: str, request: Request):
+        user = need_user(request)
+        need_csrf(request, user)
+        site = owned_site(user, site_id)
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        ip = _clean(str(body.get("ip", "")).strip())
+        if not ip:
+            raise ApiError(400, "IP address is required.")
+        db.unblock_ip(db_path, site["id"], ip)
+        return _json({"ok": True, "ip": ip})
 
     @app.post("/app/sites/{site_id}/api/test-probe")
     def test_probe(site_id: str, request: Request):
@@ -473,7 +518,7 @@ def create_app(db_path: str | None = None, cookie_secure: bool | None = None,
             "mode": site["reported_mode"],
             "connected": alive,
             "last_seen": site.get("last_seen"),
-            "message": "SDK is connected and sending telemetry." if alive else "No telemetry received in the last 5 minutes. Verify GUARD_API_KEY on your server.",
+            "message": "SDK is connected and sending telemetry." if alive else "No telemetry received in the last 5 minutes. Verify SENTINEL_API_KEY on your server.",
         })
 
     @app.get("/app/sites/{site_id}/stream")

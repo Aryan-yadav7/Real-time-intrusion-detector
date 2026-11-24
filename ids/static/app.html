@@ -3,194 +3,266 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Guard: protect your website</title>
-<script nonce="__NONCE__">try{var t=localStorage.getItem("guard-theme");if(t!=="dark"&&t!=="light")t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+<title>Sentinel — Real-Time Intrusion Detection</title>
+<script nonce="__NONCE__">try{var t=localStorage.getItem("sentinel-theme");if(t!=="dark"&&t!=="light")t="light";document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
 <style nonce="__NONCE__">
-:root{color-scheme:light;--page:#f4f5f7;--surface:#fff;--side:#fbfbfc;--ink:#1c1f26;--ink-2:#4a5160;--muted:#667085;--line:#e3e6ec;--line-2:#cdd2dc;--hover:rgba(100,110,140,.10);
---accent:#4f5bd5;--accent-ink:#fff;--accent-soft:#eceefd;--good:#1f8a4c;--warning:#d9961a;--critical:#c93c3c;
---tint-ok:#e8f5ed;--tint-warning:#fdf4dc;--tint-danger:#fcebeb;--series-1:#4f5bd5;--series-2:#d9822b;
---serif:Georgia,"Iowan Old Style","Palatino Linotype",serif;--sans:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,Roboto,sans-serif;--mono:ui-monospace,"Cascadia Mono",Consolas,monospace}
-:root[data-theme=dark]{color-scheme:dark;--page:#15171c;--surface:#1d2026;--side:#191b20;--ink:#e8eaee;--ink-2:#b6bbc7;--muted:#8d94a3;--line:#2b2f38;--line-2:#3a3f4b;--hover:rgba(160,170,200,.10);
---accent:#939df7;--accent-ink:#12141c;--accent-soft:#232744;--good:#4cc27f;--warning:#e9b949;--critical:#ef6b6b;
---tint-ok:#16291f;--tint-warning:#2d2713;--tint-danger:#331b1d;--series-1:#939df7;--series-2:#e59a52}
+:root{color-scheme:light;
+  --page:#f8fafc;--surface:#ffffff;--surface-2:#f1f5f9;--ink:#0f172a;--ink-2:#334155;--muted:#64748b;
+  --line:#e2e8f0;--line-2:#cbd5e1;--hover:#f8fafc;
+  --navy:#0f172a;--navy-hover:#1e293b;
+  --danger:#c81e1e;--danger-bright:#dc2626;--danger-soft:#fef2f2;
+  --warning:#d97706;--warning-soft:#fffbeb;
+  --teal:#2a9d8f;--good:#15803d;--good-soft:#f0fdf4;
+  --sans:"Inter","Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,Roboto,sans-serif;
+  --mono:ui-monospace,"Cascadia Mono",Consolas,monospace;
+  --radius:10px;--radius-sm:7px;
+  --shadow:0 1px 3px rgba(15,23,42,.05),0 1px 2px rgba(15,23,42,.03);
+}
+:root[data-theme=dark]{color-scheme:dark;
+  --page:#0d0f14;--surface:#13161d;--surface-2:#1a1e28;--ink:#f1f5f9;--ink-2:#cbd5e1;--muted:#94a3b8;
+  --line:#1e2330;--line-2:#2d3548;--hover:rgba(255,255,255,.04);
+  --navy:#6366f1;--navy-hover:#818cf8;
+  --danger:#ef4444;--danger-bright:#f87171;--danger-soft:rgba(239,68,68,.14);
+  --warning:#f59e0b;--warning-soft:rgba(245,158,11,.14);
+  --teal:#2dd4bf;--good:#22c55e;--good-soft:rgba(34,197,94,.14);
+  --shadow:0 1px 3px rgba(0,0,0,.3);
+}
+
 *{box-sizing:border-box}[hidden]{display:none!important}
-body{margin:0;background:var(--page);color:var(--ink);font:15px/1.6 var(--sans);-webkit-text-size-adjust:100%}
-h1,h2,h3{font-family:var(--serif);font-weight:600;letter-spacing:-.01em;margin:0;color:var(--ink)}
-h2{font-size:1.5rem;line-height:1.25;margin-bottom:6px}h3{font-size:1.0625rem;margin-bottom:6px}
+body{margin:0;background:var(--page);color:var(--ink);font:14px/1.55 var(--sans);-webkit-font-smoothing:antialiased}
+h1,h2,h3{margin:0;color:var(--ink);letter-spacing:-.025em}
+h2{font-size:1.75rem;font-weight:800;line-height:1.2;margin-bottom:8px}
+h3{font-size:1.0625rem;font-weight:700;margin-bottom:6px}
 p{margin:0 0 12px;color:var(--ink-2);max-width:68ch}
 code,pre{font-family:var(--mono);font-size:.8125rem}
-.shell{display:grid;grid-template-columns:256px minmax(0,1fr);min-height:100vh}
-.side{position:sticky;top:0;height:100vh;overflow-y:auto;background:var(--side);border-right:1px solid var(--line);padding:20px 12px 14px;display:flex;flex-direction:column;gap:20px}
-.brand{display:flex;align-items:center;gap:10px;padding:0 10px;font:600 1.1875rem var(--serif);color:var(--ink)}
-.brand svg{flex:none;color:var(--accent)}
-.nav{display:grid;gap:18px;flex:1;align-content:start}
-.ng{display:grid;gap:2px}.ng .gl{font-size:.8125rem;color:var(--muted);padding:0 10px 4px}
-.ni{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;text-align:left;font:inherit;font-size:.9rem;color:var(--ink-2);background:none;border:0;border-radius:8px;padding:8px 10px;cursor:pointer}
-.ni:hover{background:var(--hover);color:var(--ink)}
-.ni[aria-current=page]{background:var(--accent-soft);color:var(--accent);font-weight:600;box-shadow:inset 3px 0 0 var(--accent)}
-.badge{font-size:.75rem;min-width:22px;text-align:center;padding:0 7px;border-radius:999px;background:var(--hover);color:var(--ink-2)}
-.sfoot{display:grid;gap:10px;border-top:1px solid var(--line);padding:14px 6px 0}
-.who{display:grid;gap:8px;font-size:.8125rem;color:var(--ink-2)}.who span{word-break:break-all}
-.main{min-width:0}
-.topbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px max(28px,calc((100% - 1280px)/2 + 28px));background:var(--page);border-bottom:1px solid var(--line);min-height:57px}
-.topbar h1{font-size:1.125rem;flex:1;min-width:0}
-.menu-btn{display:none;padding:6px 10px}
-.content{max-width:1280px;margin:0 auto;padding:30px 28px 56px}
-.scrim{position:fixed;inset:0;background:rgba(10,12,18,.5);z-index:19}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px 22px}
-button,.btn{font:inherit;font-size:.9rem;cursor:pointer;border-radius:8px;padding:8px 15px;border:1px solid var(--line-2);background:transparent;color:var(--ink);text-decoration:none;display:inline-block;line-height:1.4}
-button:hover,.btn:hover{background:var(--hover)}
-button.primary,.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
-button.primary:hover,.btn.primary:hover{filter:brightness(1.08)}
-button.danger{color:var(--critical)}
-:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.chip{font-size:.8125rem;color:var(--ink-2);border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:3px 12px;display:inline-flex;align-items:center;gap:7px}
-.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block}
-.sub{color:var(--ink-2);margin-bottom:22px}
-@media (max-width:860px){
- .shell{grid-template-columns:1fr}
- .side{position:fixed;left:0;top:0;bottom:0;width:272px;z-index:20;transform:translateX(-102%);transition:transform .2s}
- .side[data-open=true]{transform:none;box-shadow:0 0 40px rgba(0,0,0,.35)}
- .menu-btn{display:inline-block}.topbar{padding:10px 16px}.content{padding:22px 16px 48px}
-}
-@media (prefers-reduced-motion:reduce){.side{transition:none}}
+:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
 
-.hero{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:36px;align-items:center;padding:8px 0 34px}
-.hero h2{font-size:2.25rem;line-height:1.15;margin-bottom:14px}
-.hero p{font-size:1.0625rem}
-.cta{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}
-.alert{border-left:5px solid var(--critical);background:var(--surface);border-radius:12px;border-top:1px solid var(--line);border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:16px 18px;display:grid;gap:6px}
-.alert .cap{font-size:.8125rem;color:var(--muted)}
-.alert .hd{display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap;font-weight:650}
-.pill{font-size:.75rem;border:1px solid var(--line);border-radius:999px;padding:1px 10px;color:var(--ink-2);display:inline-flex;gap:6px;align-items:center}
-.pill i{width:8px;height:8px;border-radius:50%;background:var(--critical)}
-.alert p{margin:0;font-size:.9rem}.alert .tip{color:var(--ink);font-size:.875rem;border-top:1px solid var(--line);padding-top:8px;margin-top:4px}
-.trio{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;border-top:1px solid var(--line);padding-top:24px}
-.trio p{font-size:.9rem;margin:0}
-.steps{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:0}
-.steps li{display:grid;grid-template-columns:34px 1fr;gap:14px;padding-bottom:22px;position:relative}
-.steps li::before{content:"";position:absolute;left:16px;top:34px;bottom:2px;width:2px;background:var(--line)}
-.steps li:last-child::before{display:none}
-.steps .n{width:34px;height:34px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-weight:700;display:grid;place-items:center}
-.steps p{margin:0;font-size:.9375rem}
-.split{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.split .card h3{margin-bottom:12px}
-.dl{display:grid;gap:12px;margin:0}.dl dt{font-weight:600;font-size:.9375rem}.dl dd{margin:0;color:var(--ink-2);font-size:.875rem}
-.note{background:var(--accent-soft);border-radius:10px;padding:12px 16px;font-size:.875rem;color:var(--ink);margin:16px 0}
-.note p{margin:0;color:inherit;max-width:none}
-pre{background:var(--page);border:1px solid var(--line);border-radius:10px;padding:14px;overflow-x:auto;margin:10px 0;white-space:pre;color:var(--ink)}
-.faq{display:grid;gap:8px}
-.faq details{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:0 18px}
-.faq summary{cursor:pointer;font-weight:600;padding:14px 0;list-style:none;display:flex;justify-content:space-between;gap:12px}
-.faq summary::-webkit-details-marker{display:none}
-.faq summary::after{content:"+";color:var(--muted);font-weight:400;font-size:1.25rem;line-height:1}
-.faq details[open] summary::after{content:"\2212"}
-.faq details p{padding-bottom:14px;margin:0}
-label{display:block;font-size:.875rem;color:var(--ink-2);margin:12px 0 4px}
-input{width:100%;font:inherit;color:var(--ink);background:var(--page);border:1px solid var(--line-2);border-radius:8px;padding:9px 12px}
-.narrow{max-width:420px}
-.tabs{display:inline-flex;gap:2px;padding:3px;background:var(--page);border:1px solid var(--line);border-radius:10px;margin-bottom:14px}
-.tabs button{border:0;border-radius:7px}.tabs button[aria-pressed=true]{background:var(--surface);box-shadow:0 0 0 1px var(--line-2);font-weight:600}
-.msg{margin-top:12px;padding:8px 12px;border-radius:8px;font-size:.875rem}.msg.error{background:var(--tint-danger);color:var(--ink)}
-.site{display:grid;gap:8px;margin-bottom:14px}
-.site .top{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
-.site .name{font-weight:650;font-size:1.0625rem}
+/* ── Top Navigation Bar ── */
+.topnav{position:sticky;top:0;z-index:20;background:var(--surface);border-bottom:1px solid var(--line)}
+.topnav-inner{max-width:1320px;margin:0 auto;padding:0 28px;height:60px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+.brand{display:flex;align-items:center;gap:9px;font:700 1.125rem var(--sans);color:var(--ink);letter-spacing:-.02em;white-space:nowrap}
+.brand svg{color:var(--ink);flex:none}
+
+.nav-tabs{display:flex;align-items:center;gap:6px;height:100%}
+.ntab{position:relative;display:inline-flex;align-items:center;gap:7px;height:100%;padding:0 14px;
+  background:none;border:0;font:500 .875rem var(--sans);color:var(--muted);cursor:pointer;white-space:nowrap;transition:color .15s}
+.ntab:hover{color:var(--ink)}
+.ntab[aria-current=page]{color:var(--ink);font-weight:600}
+.ntab[aria-current=page]::after{content:"";position:absolute;left:8px;right:8px;bottom:0;height:2px;background:var(--ink);border-radius:2px 2px 0 0}
+
+.nav-right{display:flex;align-items:center;gap:10px;flex:none}
+.who{display:inline-flex;align-items:center;gap:10px;font-size:.8125rem;color:var(--muted)}
+.who span{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.menu-btn{display:none;background:none;border:1px solid var(--line-2);border-radius:6px;padding:6px 10px;color:var(--ink);cursor:pointer;font:500 .8125rem var(--sans)}
+
+/* ── Main ── */
+.content{max-width:1320px;margin:0 auto;padding:34px 28px 64px}
+.sub{color:var(--muted);font-size:.9375rem;margin-bottom:24px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px;box-shadow:var(--shadow)}
+
+button,.btn{font:500 .875rem var(--sans);cursor:pointer;border-radius:var(--radius-sm);padding:8px 16px;
+  border:1px solid var(--line-2);background:var(--surface);color:var(--ink);text-decoration:none;
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;line-height:1.35;transition:background .15s,border-color .15s}
+button:hover,.btn:hover{background:var(--surface-2)}
+button.primary,.btn.primary{background:var(--navy);border-color:var(--navy);color:#fff;font-weight:600}
+button.primary:hover,.btn.primary:hover{background:var(--navy-hover)}
+button.danger{color:var(--danger-bright);border-color:var(--line-2)}
+button.danger:hover{background:var(--danger-soft);border-color:var(--danger-bright)}
+button.sm,.btn.sm{padding:5px 12px;font-size:.8125rem}
+
+.chip{font-size:.75rem;color:var(--ink-2);border:1px solid var(--line);background:var(--surface-2);
+  border-radius:999px;padding:3px 10px;display:inline-flex;align-items:center;gap:6px;font-weight:600}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--muted);display:inline-block}
 .chip[data-state=on] .dot{background:var(--good)}
-.meta{color:var(--muted);font-size:.875rem}
-.stats{display:flex;gap:24px;flex-wrap:wrap;color:var(--ink-2)}.stats b{font:600 1.5rem var(--serif);color:var(--ink)}
-.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
-a.btn{border-color:var(--accent);color:var(--accent)}a.btn:hover{background:var(--accent-soft)}
-.connect{border-left:5px solid var(--accent);background:var(--accent-soft);margin-bottom:16px}
-.connect pre{background:var(--surface)}
-.key{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.key code{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:6px 10px;word-break:break-all}
-.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-#sites h3,.addsite{margin-top:0}.addsite{margin-bottom:22px}
-@media (max-width:860px){.hero{grid-template-columns:1fr;gap:24px}.hero h2{font-size:1.85rem}.trio,.split{grid-template-columns:1fr;gap:18px}}
 
-.steps.wide{grid-template-columns:1fr 1fr;gap:0 48px}
-.steps.wide li::before{display:none}
-.faq{grid-template-columns:1fr 1fr;align-items:start}
-#sites{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px;align-items:start}
-#sites .site{margin:0}
-#p-sites>#auth{margin:24px auto}
-#p-detects .sub,#p-faq .sub{max-width:none}
-@media (max-width:1000px){.steps.wide{grid-template-columns:1fr}.faq{grid-template-columns:1fr}}
-@media (max-width:480px){#sites{grid-template-columns:1fr}}
+/* Hero */
+.hero{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:36px;align-items:center;padding:8px 0 36px}
+.hero h2{font-size:clamp(2rem,3.6vw,2.6rem);font-weight:800;line-height:1.1;margin-bottom:14px;letter-spacing:-.035em}
+.hero p{font-size:1rem;line-height:1.6}
+.cta{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}
 
-.nexth{margin:38px 0 14px}
+.alert{border-left:4px solid var(--danger-bright);background:var(--surface);border-top:1px solid var(--line);
+  border-right:1px solid var(--line);border-bottom:1px solid var(--line);border-radius:var(--radius);
+  padding:18px 20px;display:grid;gap:8px;box-shadow:var(--shadow)}
+.alert .cap{font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.alert .hd{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;font-weight:700;color:var(--ink)}
+.pill{font-size:.75rem;border:1px solid var(--line);border-radius:999px;padding:2px 10px;color:var(--danger-bright);display:inline-flex;gap:6px;align-items:center;font-weight:600}
+.pill i{width:7px;height:7px;border-radius:50%;background:var(--danger-bright)}
+.alert p{margin:0;font-size:.875rem}
+.alert .tip{color:var(--ink);font-size:.8125rem;border-top:1px solid var(--line);padding-top:10px;margin-top:4px}
+
+.trio{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;border-top:1px solid var(--line);padding-top:28px}
+.trio-item{padding:20px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.trio-icon{width:34px;height:34px;border-radius:8px;background:var(--surface-2);display:grid;place-items:center;margin-bottom:12px;color:var(--ink)}
+.trio-item p{font-size:.875rem;margin:0}
+
+.nexth{margin:36px 0 14px;font-size:1.0625rem}
 .next{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-.next button{display:grid;gap:4px;text-align:left;padding:18px 20px;background:var(--surface);border:1px solid var(--line);border-radius:14px}
-.next button:hover{border-color:var(--accent);background:var(--surface)}
-.next b{font:600 1.0625rem var(--serif)}.next span{color:var(--ink-2);font-size:.875rem}
-@media (max-width:860px){.next{grid-template-columns:1fr}}
-@media (max-width:600px){.row2{grid-template-columns:1fr}}
+.next button{display:grid;gap:4px;text-align:left;padding:18px 20px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);justify-content:start}
+.next button:hover{border-color:var(--ink)}
+.next b{font:700 1rem var(--sans);color:var(--ink)}.next span{color:var(--muted);font-size:.8125rem}
+
+.steps{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:20px}
+.steps.wide{grid-template-columns:1fr 1fr;gap:20px 40px}
+.steps li{display:grid;grid-template-columns:36px 1fr;gap:14px}
+.steps .n{width:36px;height:36px;border-radius:50%;background:var(--surface-2);color:var(--ink);font-weight:700;display:grid;place-items:center;border:1px solid var(--line-2);flex:none}
+.steps p{margin:0;font-size:.875rem}
+
+.split{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.dl{display:grid;gap:14px;margin:10px 0 0}
+.dl dt{font-weight:600;font-size:.875rem;color:var(--ink)}
+.dl dd{margin:3px 0 0;color:var(--muted);font-size:.8125rem}
+
+.note{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--navy);border-radius:var(--radius-sm);padding:14px 16px;font-size:.875rem;color:var(--ink-2);margin:20px 0}
+.note p{margin:0;max-width:none}
+pre{background:var(--page);border:1px solid var(--line);border-radius:var(--radius-sm);padding:14px 16px;overflow-x:auto;margin:10px 0;white-space:pre;color:var(--ink)}
+
+.faq{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
+.faq details{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:0 18px;box-shadow:var(--shadow)}
+.faq summary{cursor:pointer;font-weight:600;padding:14px 0;list-style:none;display:flex;justify-content:space-between;gap:12px;user-select:none}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"+";color:var(--muted);font-size:1.2rem;line-height:1}
+.faq details[open] summary::after{content:"\2212"}
+.faq details p{padding-bottom:14px;margin:0;font-size:.875rem}
+
+/* Forms & Auth */
+label{display:block;font-size:.8125rem;font-weight:600;color:var(--ink-2);margin:12px 0 5px}
+input{width:100%;font:inherit;color:var(--ink);background:var(--page);border:1px solid var(--line-2);border-radius:var(--radius-sm);padding:9px 12px}
+input:focus{border-color:var(--navy);outline:none}
+.narrow{max-width:440px;margin:20px auto}
+.tabs{display:inline-flex;gap:4px;padding:4px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-sm);margin-bottom:16px}
+.tabs button{border:0;border-radius:5px;background:transparent;padding:6px 14px}
+.tabs button[aria-pressed=true]{background:var(--surface);box-shadow:var(--shadow);font-weight:600;color:var(--ink)}
+.msg{margin-top:12px;padding:9px 12px;border-radius:var(--radius-sm);font-size:.8125rem}
+.msg.error{background:var(--danger-soft);color:var(--danger-bright);border:1px solid var(--danger-bright)}
+
+/* Sites */
+.addsite{margin-bottom:24px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+#sites{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:16px;align-items:start}
+.site{display:grid;gap:10px}
+.site .top{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
+.site .name{font-weight:700;font-size:1.0625rem;color:var(--ink)}
+.meta{color:var(--muted);font-size:.8125rem}
+.stats{display:flex;gap:24px;flex-wrap:wrap;color:var(--ink-2);font-size:.875rem}
+.stats b{font:800 1.375rem var(--sans);color:var(--ink)}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+
+.connect{border-left:4px solid var(--navy);margin-bottom:20px}
+.key{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0 12px}
+.key code{background:var(--page);border:1px solid var(--line);border-radius:6px;padding:7px 11px;word-break:break-all;color:var(--ink)}
+
+@media (max-width:960px){
+  .hero,.steps.wide,.faq,.split,.trio,.next{grid-template-columns:1fr}
+}
+@media (max-width:780px){
+  .topnav-inner{padding:0 16px}
+  .menu-btn{display:inline-flex}
+  .nav-tabs{display:none;position:absolute;top:60px;left:0;right:0;background:var(--surface);border-bottom:1px solid var(--line);
+    flex-direction:column;align-items:stretch;height:auto;padding:10px 16px;gap:4px;box-shadow:var(--shadow)}
+  .nav-tabs[data-open=true]{display:flex}
+  .ntab{height:40px;padding:0 10px}
+  .ntab[aria-current=page]::after{display:none}
+  .content{padding:22px 16px 48px}
+  .row2,#sites{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body>
-<div class="shell">
-<aside class="side" id="side" aria-label="Sections">
-  <div class="brand"><svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true"><path d="M13 2.5 22 6v6.6c0 5.1-3.6 9-9 10.9-5.4-1.9-9-5.8-9-10.9V6l9-3.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="m8.8 13 3 3 5.4-5.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Guard</div>
-  <nav class="nav">
-    <div class="ng"><div class="gl">About Guard</div><button type="button" class="ni" data-go="overview"><span class="lbl">Overview</span></button><button type="button" class="ni" data-go="how"><span class="lbl">How it works</span></button><button type="button" class="ni" data-go="detects"><span class="lbl">What it detects</span></button></div>
-    <div class="ng"><div class="gl">Get started</div><button type="button" class="ni" data-go="setup"><span class="lbl">Setup</span></button><button type="button" class="ni" data-go="faq"><span class="lbl">FAQ</span></button></div>
-    <div class="ng"><div class="gl">Account</div><button type="button" class="ni" data-go="sites"><span class="lbl" id="nav-sites-label">Sign in</span></button></div>
-  </nav>
-  <div class="sfoot">
-    <div class="who" id="who" hidden><span id="email"></span><button id="logout" type="button">Log out</button></div>
-    <button type="button" id="theme" class="ghost"></button>
+
+<header class="topnav">
+  <div class="topnav-inner">
+    <div class="brand">
+      <button type="button" class="menu-btn" id="menu" aria-label="Menu" aria-expanded="false">Menu</button>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M12 2.5 20 5.8v5.9c0 4.9-3.4 8.8-8 10.6-4.6-1.8-8-5.7-8-10.6V5.8L12 2.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+      </svg>
+      Sentinel
+    </div>
+
+    <nav class="nav-tabs" id="nav-tabs" aria-label="Primary">
+      <button type="button" class="ntab" data-go="overview">Overview</button>
+      <button type="button" class="ntab" data-go="how">How it works</button>
+      <button type="button" class="ntab" data-go="detects">What it detects</button>
+      <button type="button" class="ntab" data-go="setup">Setup</button>
+      <button type="button" class="ntab" data-go="faq">FAQ</button>
+      <button type="button" class="ntab" data-go="sites"><span id="nav-sites-label">Sign in</span></button>
+    </nav>
+
+    <div class="nav-right">
+      <div class="who" id="who" hidden><span id="email"></span><button id="logout" type="button" class="sm">Log out</button></div>
+      <button type="button" id="theme" class="sm">Dark</button>
+    </div>
   </div>
-</aside>
-<div class="scrim" id="scrim" hidden></div>
-<div class="main">
-<header class="topbar">
-  <button type="button" class="menu-btn" id="menu" aria-label="Open menu" aria-expanded="false" aria-controls="side">Menu</button>
-  <h1 id="sect">Overview</h1>
 </header>
+
+<span id="sect" hidden>Overview</span>
+
 <main class="content">
 
+<!-- ═══ OVERVIEW ═══ -->
 <section class="panel" id="p-overview">
   <div class="hero">
     <div>
-      <h2>Know when someone attacks your website, and what to do about it.</h2>
-      <p>Guard checks every request to your Python website as it arrives, then explains each threat in plain language on a live dashboard. No log files to read.</p>
+      <h2>Real-time intrusion detection for your web application.</h2>
+      <p>Sentinel inspects every request the moment it arrives, then explains each threat in plain language on a live dashboard &mdash; no log files, no guesswork.</p>
       <div class="cta">
         <button type="button" class="primary" data-go="sites" data-signup>Create a free account</button>
-        <button type="button" data-go="how">See how it works</button>
+        <button type="button" data-go="how">See how it works &rarr;</button>
       </div>
     </div>
     <div class="alert" aria-label="Example alert">
-      <span class="cap">Example alert</span>
-      <div class="hd"><span>Someone tried to trick your database</span><span class="pill"><i></i>Serious</span></div>
-      <p>A visitor typed special database commands into a form or web address, hoping your site would run them and hand over or change private data.</p>
-      <p class="tip">What you can do: use parameterized queries and never build database commands by gluing user text together.</p>
+      <span class="cap">Live example alert</span>
+      <div class="hd"><span>Someone tried to trick your database</span><span class="pill"><i></i>Critical</span></div>
+      <p>A visitor typed special database commands into a form or URL, hoping your site would run them and expose or modify private data.</p>
+      <p class="tip">What you can do: use parameterized queries and never build SQL commands by concatenating user input.</p>
     </div>
   </div>
   <div class="trio">
-    <div><h3>Caught as it happens</h3><p>Each request is inspected on arrival, not hours later from a log file.</p></div>
-    <div><h3>Written for people</h3><p>Every alert says what happened and what to do next. Technical details sit one click away.</p></div>
-    <div><h3>Watch or block</h3><p>Start by only monitoring. Switch to blocking when you trust what you see.</p></div>
+    <div class="trio-item">
+      <div class="trio-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </div>
+      <h3>Caught as it happens</h3>
+      <p>Each request is inspected on arrival, not hours later from a log file.</p>
+    </div>
+    <div class="trio-item">
+      <div class="trio-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </div>
+      <h3>Written for people</h3>
+      <p>Every alert says what happened and what to do next. Technical details sit one click away.</p>
+    </div>
+    <div class="trio-item">
+      <div class="trio-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      </div>
+      <h3>Monitor or block</h3>
+      <p>Start by only monitoring. Switch to blocking when you trust what you see.</p>
+    </div>
   </div>
   <h3 class="nexth">Where to go next</h3>
   <div class="next">
     <button type="button" data-go="how"><b>How it works</b><span>Follow one request from visitor to dashboard.</span></button>
-    <button type="button" data-go="detects"><b>What it detects</b><span>The attacks and patterns Guard recognizes.</span></button>
-    <button type="button" data-go="setup"><b>Setup</b><span>Add Guard to your website in four steps.</span></button>
+    <button type="button" data-go="detects"><b>What it detects</b><span>The attacks and patterns Sentinel recognizes.</span></button>
+    <button type="button" data-go="setup"><b>Setup</b><span>Add Sentinel to your website in four steps.</span></button>
   </div>
 </section>
 
+<!-- ═══ HOW IT WORKS ═══ -->
 <section class="panel" id="p-how" hidden>
   <h2>How it works</h2>
-  <p class="sub">Guard runs inside your website and reports to your account.</p>
+  <p class="sub">Sentinel runs inside your website and reports to your account.</p>
   <ol class="steps wide">
-    <li><span class="n">1</span><div><h3>A visitor sends a request</h3><p>Guard sits in front of your app as middleware, so it sees each request before your code does.</p></div></li>
-    <li><span class="n">2</span><div><h3>Guard inspects it</h3><p>Rules check the page address, query, body and headers, and give the request a risk score from 0 to 100. Guard also remembers each visitor&rsquo;s recent behavior to spot floods and repeated failed logins.</p></div></li>
-    <li><span class="n">3</span><div><h3>It logs or blocks</h3><p>In monitor mode the threat is only recorded. In block mode a dangerous request gets a 403 and a visitor with an active behavior alert gets a 429.</p></div></li>
-    <li><span class="n">4</span><div><h3>You see it live</h3><p>The dashboard shows a green, yellow or red status, a feed of plain-language alerts, and where threats came from.</p></div></li>
+    <li><span class="n">1</span><div><h3>A visitor sends a request</h3><p>Sentinel sits in front of your app as middleware, so it sees each request before your code does.</p></div></li>
+    <li><span class="n">2</span><div><h3>Sentinel inspects it</h3><p>Rules check the URL, query string, body and headers, then assign a risk score from 0 to 100. Sentinel also remembers each visitor's recent behavior to spot floods and repeated failed logins.</p></div></li>
+    <li><span class="n">3</span><div><h3>It logs or blocks</h3><p>In monitor mode threats are only recorded. In block mode a dangerous request gets a 403 and a visitor with an active behavior alert gets a 429.</p></div></li>
+    <li><span class="n">4</span><div><h3>You see it live</h3><p>The dashboard shows an All clear, Suspicious, or Under attack status, live alerts, and blocked IPs.</p></div></li>
   </ol>
   <div class="note"><p>Behavior alerts fire once and stay active for 2 minutes. You get one alert instead of thousands, and in block mode that visitor stays blocked meanwhile.</p></div>
 </section>
 
+<!-- ═══ WHAT IT DETECTS ═══ -->
 <section class="panel" id="p-detects" hidden>
   <h2>What it detects</h2>
   <p class="sub">Two kinds of threats: a single bad request, and a pattern that only shows over time.</p>
@@ -198,53 +270,58 @@ a.btn{border-color:var(--accent);color:var(--accent)}a.btn:hover{background:var(
     <div class="card"><h3>In a single request</h3>
       <dl class="dl">
         <div><dt>SQL and NoSQL injection</dt><dd>Database commands typed into forms or addresses.</dd></div>
-        <div><dt>Cross-site scripting (XSS)</dt><dd>Script code planted to run in other visitors&rsquo; browsers.</dd></div>
+        <div><dt>Cross-site scripting (XSS)</dt><dd>Script code planted to run in other visitors' browsers.</dd></div>
         <div><dt>Path traversal</dt><dd>Attempts to read files outside the web folder.</dd></div>
         <div><dt>Command, PHP and template injection</dt><dd>Attempts to run code on your server.</dd></div>
         <div><dt>Log4Shell and header injection</dt><dd>Including obfuscated Log4Shell strings.</dd></div>
         <div><dt>Scanners and probing</dt><dd>Hacking tools, and searches for <code>.env</code>, <code>.git</code> or admin panels.</dd></div>
-      </dl></div>
+      </dl>
+    </div>
     <div class="card"><h3>Over time</h3>
       <dl class="dl">
-        <div><dt>Flood</dt><dd>Far too many requests from one visitor.</dd></div>
+        <div><dt>Flood</dt><dd>Far too many requests from one visitor in a short window.</dd></div>
         <div><dt>Brute force</dt><dd>Many failed logins in a short time.</dd></div>
-        <div><dt>Credential stuffing</dt><dd>Many different usernames tried from one visitor.</dd></div>
+        <div><dt>Credential stuffing</dt><dd>Many different usernames tried from one source.</dd></div>
         <div><dt>Scanning</dt><dd>Many requests for pages that do not exist.</dd></div>
-      </dl></div>
+      </dl>
+    </div>
   </div>
 </section>
 
+<!-- ═══ SETUP ═══ -->
 <section class="panel" id="p-setup" hidden>
   <h2>Setup</h2>
-  <p class="sub">About five minutes, using any Python website built on FastAPI or Starlette.</p>
+  <p class="sub">About five minutes, using any Python app built on FastAPI or Starlette.</p>
   <ol class="steps wide">
-    <li><span class="n">1</span><div><h3>Create an account</h3><p>Use the Account section in the sidebar. Passwords need at least 10 characters.</p></div></li>
-    <li><span class="n">2</span><div><h3>Add your website</h3><p>Give it a name. Guard shows your API key once, so copy it right away. If you lose it, choose &ldquo;New key&rdquo; and the old one stops working.</p></div></li>
-    <li><span class="n">3</span><div><h3>Add the middleware</h3><p>Paste these lines into your website&rsquo;s Python code:</p>
-<pre>from ids.sdk import GuardMiddleware
+    <li><span class="n">1</span><div><h3>Create an account</h3><p>Open Sign in / My websites in the top bar. Passwords need at least 10 characters.</p></div></li>
+    <li><span class="n">2</span><div><h3>Add your website</h3><p>Give it a name. Sentinel shows your API key once, so copy it right away. If you lose it, choose "New key" and the old one stops working.</p></div></li>
+    <li><span class="n">3</span><div><h3>Add the middleware</h3><p>Paste these lines into your website's Python code:</p>
+<pre>from ids.sdk import SentinelMiddleware
 
 app.add_middleware(
-    GuardMiddleware,
+    SentinelMiddleware,
     api_key="your-api-key",
-    server="<span id="snip-server">this server&rsquo;s address</span>",
+    server="<span id="snip-server">this server's address</span>",
     mode="detect",   # use "block" to also stop attacks
 )</pre></div></li>
-    <li><span class="n">4</span><div><h3>Check the dashboard</h3><p>Once your site gets its first visit, the website shows as Connected. Run in detect mode for a while, then switch to block.</p></div></li>
+    <li><span class="n">4</span><div><h3>Check the dashboard</h3><p>Once your site gets its first visit, it shows as Connected. Run in detect mode for a while, then switch to block when ready.</p></div></li>
   </ol>
 </section>
 
+<!-- ═══ FAQ ═══ -->
 <section class="panel" id="p-faq" hidden>
   <h2>FAQ</h2>
   <p class="sub">Short answers to the usual questions.</p>
   <div class="faq">
     <details><summary>What is the difference between detect and block mode?</summary><p>Detect only records threats. Block also stops them: a dangerous request gets a 403 response, and a visitor with an active behavior alert gets a 429 for the next 2 minutes.</p></details>
-    <details><summary>What does Guard store about my visitors?</summary><p>The page path (never the query string), a short redacted snippet of the evidence, the visitor&rsquo;s IP address and browser name. It never stores request bodies, cookies, passwords or usernames.</p></details>
+    <details><summary>What does Sentinel store about my visitors?</summary><p>The page path (never the query string), a short redacted snippet of the evidence, the visitor's IP address and browser name. It never stores request bodies, cookies, passwords or usernames.</p></details>
     <details><summary>Could a normal visitor get blocked by mistake?</summary><p>Rules are tested against harmless lookalikes, but no detector is perfect. That is why monitor mode comes first: you can review alerts before turning on blocking.</p></details>
-    <details><summary>I lost my API key. What now?</summary><p>Open your website under Account and choose &ldquo;New key&rdquo;. The old key stops working immediately, so update your site with the new one.</p></details>
-    <details><summary>Where do I see what is happening?</summary><p>Choose &ldquo;Open dashboard&rdquo; on any website under Account. It updates live without refreshing.</p></details>
+    <details><summary>I lost my API key. What now?</summary><p>Open your website under My websites and choose "New key". The old key stops working immediately, so update your site with the new one.</p></details>
+    <details><summary>Where do I see what is happening?</summary><p>Choose "Open dashboard" on any website under My websites. It updates live without refreshing.</p></details>
   </div>
 </section>
 
+<!-- ═══ ACCOUNT / SITES ═══ -->
 <section class="panel" id="p-sites" hidden>
   <section class="card narrow" id="auth" hidden>
     <div class="tabs" role="group" aria-label="Log in or sign up">
@@ -266,13 +343,13 @@ app.add_middleware(
   <section id="main" hidden>
     <div class="card connect" id="connect" hidden>
       <h3>Connect <span id="connect-name"></span></h3>
-      <p><b>Copy your API key now.</b> It is shown only once. If you lose it, use &ldquo;New key&rdquo; to replace it.</p>
-      <div class="key"><code id="key-text"></code><button type="button" id="copy-key">Copy key</button></div>
-      <p>Add these lines to your website&rsquo;s Python code:</p>
+      <p><b>Copy your API key now.</b> It is shown only once. If you lose it, use "New key" to replace it.</p>
+      <div class="key"><code id="key-text"></code><button type="button" id="copy-key" class="sm">Copy key</button></div>
+      <p>Add these lines to your website's Python code (or set <code>SENTINEL_API_KEY</code> in <code>ids/.env</code>):</p>
       <pre id="snippet"></pre>
       <div class="cta">
         <button type="button" id="copy-snippet" class="btn">Copy snippet</button>
-        <button type="button" id="close-connect" class="primary">I&rsquo;ve saved it</button>
+        <button type="button" id="close-connect" class="primary">I've saved it</button>
       </div>
     </div>
     <div class="card addsite">
@@ -293,36 +370,50 @@ app.add_middleware(
 </section>
 
 </main>
-</div>
-</div>
+
 <script nonce="__NONCE__">
-(function(){"use strict";
-var DEFAULT="overview",current=null,side=document.getElementById("side"),scrim=document.getElementById("scrim");
-function $(i){return document.getElementById(i)}
-function menu(o){side.setAttribute("data-open",String(o));scrim.hidden=!o;$("menu").setAttribute("aria-expanded",String(o))}
-function route(){
-  var n=(location.hash||"").slice(1),found=false;
-  document.querySelectorAll(".panel").forEach(function(p){if(p.id==="p-"+n)found=true});
-  if(!found)n=DEFAULT;
-  if(n!==current){
-    document.querySelectorAll(".panel").forEach(function(p){p.hidden=p.id!=="p-"+n});
-    document.querySelectorAll(".ni").forEach(function(b){if(b.getAttribute("data-go")===n)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});
-    var t=$("sect");if(t){var b=document.querySelector('.ni[data-go="'+n+'"] .lbl');t.textContent=b?b.textContent:""}
-    if(current!==null)window.scrollTo(0,0);
-    current=n;
+(function () {
+  "use strict";
+  var DEFAULT = "overview", current = null;
+  var navTabs = document.getElementById("nav-tabs"), menuBtn = document.getElementById("menu");
+  function $(i) { return document.getElementById(i); }
+  function menu(o) {
+    if (navTabs) navTabs.setAttribute("data-open", String(o));
+    if (menuBtn) menuBtn.setAttribute("aria-expanded", String(o));
   }
-  menu(false);
-}
-function go(n){if(location.hash!=="#"+n)location.hash=n;route()}
-document.addEventListener("click",function(e){var b=e.target.closest("[data-go]");if(b)go(b.getAttribute("data-go"))});
-window.addEventListener("hashchange",route);
-$("menu").addEventListener("click",function(){menu(side.getAttribute("data-open")!=="true")});
-scrim.addEventListener("click",function(){menu(false)});
-document.addEventListener("keydown",function(e){if(e.key==="Escape")menu(false)});
-var tb=$("theme");
-function label(){tb.textContent=document.documentElement.getAttribute("data-theme")==="dark"?"Switch to light theme":"Switch to dark theme"}
-tb.addEventListener("click",function(){var t=document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark";document.documentElement.setAttribute("data-theme",t);try{localStorage.setItem("guard-theme",t)}catch(e){}label()});
-label();window.guardNav={go:go};route();
+  function route() {
+    var n = (location.hash || "").slice(1), found = false;
+    document.querySelectorAll(".panel").forEach(function (p) { if (p.id === "p-" + n) found = true; });
+    if (!found) n = DEFAULT;
+    if (n !== current) {
+      document.querySelectorAll(".panel").forEach(function (p) { p.hidden = p.id !== "p-" + n; });
+      document.querySelectorAll(".ntab").forEach(function (b) {
+        if (b.getAttribute("data-go") === n) b.setAttribute("aria-current", "page");
+        else b.removeAttribute("aria-current");
+      });
+      var t = $("sect");
+      if (t) { var b = document.querySelector('.ntab[data-go="' + n + '"]'); t.textContent = b ? b.textContent : ""; }
+      if (current !== null) window.scrollTo(0, 0);
+      current = n;
+    }
+    menu(false);
+  }
+  function go(n) { if (location.hash !== "#" + n) location.hash = n; route(); }
+  document.addEventListener("click", function (e) { var b = e.target.closest("[data-go]"); if (b) go(b.getAttribute("data-go")); });
+  window.addEventListener("hashchange", route);
+  if (menuBtn) menuBtn.addEventListener("click", function () { menu(navTabs.getAttribute("data-open") !== "true"); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") menu(false); });
+  var tb = $("theme");
+  function label() { if (tb) tb.textContent = document.documentElement.getAttribute("data-theme") === "dark" ? "Light" : "Dark"; }
+  if (tb) tb.addEventListener("click", function () {
+    var t = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", t);
+    try { localStorage.setItem("sentinel-theme", t); } catch (e) {}
+    label();
+  });
+  label();
+  window.sentinelNav = { go: go };
+  route();
 })();
 </script>
 <script nonce="__NONCE__">
@@ -332,7 +423,6 @@ label();window.guardNav={go:go};route();
   var mode = "login";
 
   function $(id) { return document.getElementById(id); }
-  // Everything dynamic goes through textContent, never an HTML-parsing API.
   function el(tag, cls, text) {
     var e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -369,7 +459,7 @@ label();window.guardNav={go:go};route();
     var l = $("nav-sites-label"); l.textContent = t;
     if (l.parentNode.getAttribute("aria-current") === "page") $("sect").textContent = t;
   }
-  // ---------------------------------------------------------- views
+
   function showAuth() {
     csrf = "";
     show($("auth"), true); show($("main"), false); show($("who"), false); setSitesLabel("Sign in");
@@ -394,7 +484,7 @@ label();window.guardNav={go:go};route();
   function siteCard(s) {
     var card = el("div", "card site");
     var top = el("div", "top");
-    top.appendChild(el("div", "name", s.name + (s.domain ? "  ·  " + s.domain : "")));
+    top.appendChild(el("div", "name", s.name + (s.domain ? "  \u00b7  " + s.domain : "")));
     var chip = el("span", "chip");
     var live = s.last_seen && (Date.now() / 1000 - s.last_seen) < 120;
     chip.setAttribute("data-state", live ? "on" : "off");
@@ -417,17 +507,18 @@ label();window.guardNav={go:go};route();
     else if (s.webhook_url) alertDesc = "Alerts: Webhook";
     else if (s.has_telegram) alertDesc = "Alerts: Telegram";
     card.appendChild(el("div", "meta",
-      "API key " + s.key_prefix + "…  ·  " + (s.mode === "block" ? "blocking attacks" : "monitoring only") + "  ·  " + alertDesc));
+      "API key " + s.key_prefix + "\u2026  \u00b7  " + (s.mode === "block" ? "blocking attacks" : "monitoring only") + "  \u00b7  " + alertDesc));
 
     var actions = el("div", "actions");
-    var open = el("a", "btn", "Open dashboard");
+    var open = el("a", "btn primary", "Open dashboard");
     open.href = "/app/sites/" + encodeURIComponent(s.id) + "/";
     actions.appendChild(open);
+
     var probe = el("button", null, "Test probe");
     probe.type = "button";
     probe.title = "Test if this site middleware is connected and sending telemetry";
     probe.addEventListener("click", function () {
-      probe.textContent = "Testing…";
+      probe.textContent = "Testing\u2026";
       api("POST", "/app/sites/" + encodeURIComponent(s.id) + "/api/test-probe").then(function (d) {
         probe.textContent = "Test probe";
         alert(d.connected ? "Success: " + d.message : "Warning: " + d.message);
@@ -437,6 +528,7 @@ label();window.guardNav={go:go};route();
       });
     });
     actions.appendChild(probe);
+
     var rotate = el("button", null, "New key");
     rotate.type = "button";
     rotate.addEventListener("click", function () {
@@ -446,6 +538,7 @@ label();window.guardNav={go:go};route();
       }).catch(function (e) { alert(e.message); });
     });
     actions.appendChild(rotate);
+
     var del = el("button", "danger", "Delete");
     del.type = "button";
     del.addEventListener("click", function () {
@@ -474,9 +567,9 @@ label();window.guardNav={go:go};route();
     $("connect-name").textContent = site.name;
     $("key-text").textContent = key;
     $("snippet").textContent =
-      "from ids.sdk import GuardMiddleware\n\n" +
+      "from ids.sdk import SentinelMiddleware\n\n" +
       "app.add_middleware(\n" +
-      "    GuardMiddleware,\n" +
+      "    SentinelMiddleware,\n" +
       "    api_key=\"" + key + "\",\n" +
       "    server=\"" + location.origin + "\",\n" +
       "    mode=\"detect\",   # use \"block\" to also stop attacks\n" +
@@ -484,10 +577,9 @@ label();window.guardNav={go:go};route();
       "    exempt_prefixes=[\"/stripe/webhook\"], # optional uninspected routes\n" +
       ")";
     show($("connect"), true);
-    window.guardNav.go("sites"); $("connect").scrollIntoView({ behavior: "smooth", block: "start" });
+    window.sentinelNav.go("sites"); $("connect").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  // ---------------------------------------------------------- events
   document.querySelectorAll("[data-signup]").forEach(function (b) { b.addEventListener("click", function () { setMode("signup"); }); });
   $("tab-login").addEventListener("click", function () { setMode("login"); });
   $("tab-signup").addEventListener("click", function () { setMode("signup"); });
@@ -521,7 +613,7 @@ label();window.guardNav={go:go};route();
   $("copy-key").addEventListener("click", function () {
     var key = $("key-text").textContent;
     if (navigator.clipboard) navigator.clipboard.writeText(key).then(function () {
-      $("copy-key").textContent = "Copied";
+      $("copy-key").textContent = "Copied!";
       setTimeout(function () { $("copy-key").textContent = "Copy key"; }, 1500);
     });
   });
@@ -533,10 +625,9 @@ label();window.guardNav={go:go};route();
     });
   });
 
-  // keep "Connected / Last seen" fresh
   setInterval(function () { if (!$("main").hidden) loadSites(); }, 15000);
 
-  api("GET", "/api/me").then(function (d) { csrf = d.csrf; showMain(d.email); if (!location.hash) window.guardNav.go("sites"); })
+  api("GET", "/api/me").then(function (d) { csrf = d.csrf; showMain(d.email); if (!location.hash) window.sentinelNav.go("sites"); })
     .catch(function () { showAuth(); });
   $("snip-server").textContent = location.origin;
 })();
